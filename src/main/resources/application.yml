@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: fairwaygms #???? ??
+  datasource: # ?????? ?? ??
+    url: jdbc:mysql://localhost:3306/fairway_gms
+    username: root
+    password: qaws7579
