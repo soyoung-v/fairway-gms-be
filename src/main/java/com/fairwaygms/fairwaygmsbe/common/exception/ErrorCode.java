@@ -65,7 +65,7 @@ public enum ErrorCode {
     // 탈퇴 처리(WITHDRAWN)된 계정인 경우
     ACCOUNT_WITHDRAWN("ACCOUNT_WITHDRAWN", "탈퇴 처리된 계정입니다.", HttpStatus.FORBIDDEN),
 
-    // 비밀번호가 정책(최소 8자, 영문 대소문자·숫자·특수문자 포함)을 충족하지 않는 경우
+    // 비밀번호가 정책(8~30자, 영문·숫자·특수문자 포함, 공백 불가)을 충족하지 않는 경우
     INVALID_PASSWORD("INVALID_PASSWORD", "비밀번호 정책을 충족하지 않습니다.", HttpStatus.BAD_REQUEST),
 
     // 이미 승인 또는 거절 처리된 가입 요청에 중복 처리 시도한 경우
