@@ -58,4 +58,20 @@ public class RefreshToken extends BaseEntity {
     // 소프트 삭제 시각
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // Refresh Token 원문 대신 해시만 저장
+    public static RefreshToken create(Long userId, String tokenHash, LocalDateTime expiresAt) {
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.userId = userId;
+        refreshToken.tokenHash = tokenHash;
+        refreshToken.expiresAt = expiresAt;
+        refreshToken.isRevoked = false;
+        refreshToken.isDeleted = false;
+        return refreshToken;
+    }
+
+    // 로그아웃 또는 보안 처리 시 재사용 차단
+    public void revoke() {
+        this.isRevoked = true;
+    }
 }

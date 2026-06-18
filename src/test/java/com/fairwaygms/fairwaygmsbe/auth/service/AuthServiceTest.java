@@ -1,0 +1,197 @@
+package com.fairwaygms.fairwaygmsbe.auth.service;
+
+import com.fairwaygms.fairwaygmsbe.auth.domain.RefreshToken;
+import com.fairwaygms.fairwaygmsbe.auth.domain.User;
+import com.fairwaygms.fairwaygmsbe.auth.domain.UserStatus;
+import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
+import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
+import com.fairwaygms.fairwaygmsbe.auth.repository.RefreshTokenRepository;
+import com.fairwaygms.fairwaygmsbe.auth.repository.UserRepository;
+import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
+import com.fairwaygms.fairwaygmsbe.common.security.JwtProperties;
+import com.fairwaygms.fairwaygmsbe.common.security.JwtTokenProvider;
+import com.fairwaygms.fairwaygmsbe.common.security.TokenHashProvider;
+import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class AuthServiceTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Mock
+    private TokenHashProvider tokenHashProvider;
+
+    private AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        JwtProperties jwtProperties = new JwtProperties();
+        jwtProperties.setRefreshTokenValiditySeconds(1209600);
+        authService = new AuthService(
+                userRepository,
+                refreshTokenRepository,
+                passwordEncoder,
+                jwtTokenProvider,
+                jwtProperties,
+                tokenHashProvider
+        );
+    }
+
+    @Test
+    void signupStoresPasswordHash() {
+        // given
+        SignupRequest request = new SignupRequest(
+                "MANAGER@Test.com",
+                "password123!",
+                "테스트 매니저",
+                "010-1234-5678",
+                UserRole.MANAGER,
+                1L
+        );
+        when(userRepository.existsByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(false);
+        when(passwordEncoder.encode("password123!")).thenReturn("encoded-password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        authService.signup(request);
+
+        // then
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(captor.capture());
+        User savedUser = captor.getValue();
+        assertThat(savedUser.getEmail()).isEqualTo("manager@test.com");
+        assertThat(savedUser.getPasswordHash()).isEqualTo("encoded-password");
+        assertThat(savedUser.getStatus()).isEqualTo(UserStatus.PENDING);
+        assertThat(savedUser.getEmailVerified()).isFalse();
+    }
+
+    @Test
+    void signupThrowsWhenEmailDuplicated() {
+        // given
+        SignupRequest request = new SignupRequest(
+                "manager@test.com",
+                "password123!",
+                "테스트 매니저",
+                null,
+                UserRole.MANAGER,
+                1L
+        );
+        when(userRepository.existsByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> authService.signup(request))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.EMAIL_DUPLICATED));
+    }
+
+    @Test
+    void loginCreatesTokensAndStoresRefreshTokenHash() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password123!", "encoded-password")).thenReturn(true);
+        when(jwtTokenProvider.createAccessToken(1L, UserRole.MANAGER, 10L)).thenReturn("access-token");
+        when(jwtTokenProvider.createRefreshToken(1L, UserRole.MANAGER, 10L)).thenReturn("refresh-token");
+        when(tokenHashProvider.hash("refresh-token")).thenReturn("refresh-hash");
+
+        // when
+        AuthLoginResult result = authService.login(new LoginRequest("manager@test.com", "password123!"));
+
+        // then
+        assertThat(result.accessToken()).isEqualTo("access-token");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token");
+        assertThat(result.user().userId()).isEqualTo(1L);
+        assertThat(user.getLastLoginAt()).isNotNull();
+
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getUserId()).isEqualTo(1L);
+        assertThat(captor.getValue().getTokenHash()).isEqualTo("refresh-hash");
+        assertThat(captor.getValue().getExpiresAt()).isNotNull();
+    }
+
+    @Test
+    void loginThrowsWhenPasswordInvalid() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "encoded-password")).thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(new LoginRequest("manager@test.com", "wrong")))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() {
+        // given
+        RefreshToken refreshToken = RefreshToken.create(1L, "refresh-hash", java.time.LocalDateTime.now().plusDays(14));
+        when(tokenHashProvider.hash("refresh-token")).thenReturn("refresh-hash");
+        when(refreshTokenRepository.findByTokenHashAndIsDeletedFalse("refresh-hash"))
+                .thenReturn(Optional.of(refreshToken));
+
+        // when
+        authService.logout("refresh-token");
+
+        // then
+        assertThat(refreshToken.getIsRevoked()).isTrue();
+    }
+
+    @Test
+    void getMeReturnsDto() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+
+        // when
+        MeResponse response = authService.getMe(1L);
+
+        // then
+        assertThat(response.userId()).isEqualTo(1L);
+        assertThat(response.email()).isEqualTo("manager@test.com");
+        assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    private User activeUser() {
+        User user = User.createEmailUser(
+                "manager@test.com",
+                "encoded-password",
+                "테스트 매니저",
+                "010-1234-5678",
+                UserRole.MANAGER,
+                10L
+        );
+        ReflectionTestUtils.setField(user, "id", 1L);
+        user.approve(99L);
+        return user;
+    }
+}

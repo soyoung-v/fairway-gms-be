@@ -1,0 +1,94 @@
+package com.fairwaygms.fairwaygmsbe.auth.controller;
+
+import com.fairwaygms.fairwaygmsbe.auth.dto.AuthUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
+import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.MessageResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
+import com.fairwaygms.fairwaygmsbe.auth.dto.SignupResponse;
+import com.fairwaygms.fairwaygmsbe.auth.service.AuthLoginResult;
+import com.fairwaygms.fairwaygmsbe.auth.service.AuthService;
+import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
+import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
+import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import com.fairwaygms.fairwaygmsbe.common.security.JwtCookieProvider;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthService authService;
+    private final JwtCookieProvider jwtCookieProvider;
+
+    // 회원가입 후 승인 대기 상태를 반환하고 토큰은 발급하지 않는다.
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
+        SignupResponse response = authService.signup(request);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success(response));
+    }
+
+    // 로그인 성공 시 JWT 원문은 body가 아니라 HttpOnly Cookie로만 내려준다.
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthUserResponse>> login(@Valid @RequestBody LoginRequest request) {
+        AuthLoginResult result = authService.login(request);
+        HttpHeaders headers = createCookieHeaders(
+                jwtCookieProvider.createAccessTokenCookie(result.accessToken()),
+                jwtCookieProvider.createRefreshTokenCookie(result.refreshToken())
+        );
+        return ResponseEntity
+                .ok()
+                .headers(headers)
+                .body(ApiResponse.success(result.user()));
+    }
+
+    // Refresh Token 저장소는 폐기하고 브라우저 쿠키도 함께 제거한다.
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<MessageResponse>> logout(
+            @CookieValue(name = "rt", required = false) String refreshToken
+    ) {
+        authService.logout(refreshToken);
+        HttpHeaders headers = createCookieHeaders(
+                jwtCookieProvider.deleteAccessTokenCookie(),
+                jwtCookieProvider.deleteRefreshTokenCookie()
+        );
+        return ResponseEntity
+                .ok()
+                .headers(headers)
+                .body(ApiResponse.success(new MessageResponse("로그아웃되었습니다.")));
+    }
+
+    // SecurityContext의 인증 사용자 기준 내 정보를 조회한다.
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<MeResponse>> me(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+        if (authenticatedUser == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return ResponseEntity.ok(ApiResponse.success(authService.getMe(authenticatedUser.getUserId())));
+    }
+
+    // 여러 Set-Cookie 헤더를 누락 없이 응답에 추가한다.
+    private HttpHeaders createCookieHeaders(ResponseCookie... cookies) {
+        HttpHeaders headers = new HttpHeaders();
+        for (ResponseCookie cookie : cookies) {
+            headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
+        }
+        return headers;
+    }
+}

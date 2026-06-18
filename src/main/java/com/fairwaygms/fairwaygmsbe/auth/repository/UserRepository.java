@@ -13,6 +13,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 이메일 로그인 대상 조회
     Optional<User> findByEmailAndIsDeletedFalse(String email);
 
+    // 인증 사용자 ID 기준 조회
+    Optional<User> findByIdAndIsDeletedFalse(Long id);
+
     // 이메일 중복 가입 확인
     boolean existsByEmailAndIsDeletedFalse(String email);
 

@@ -92,4 +92,38 @@ public class User extends BaseEntity {
     // 소프트 삭제 시각
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // 이메일 회원가입 계정 생성
+    public static User createEmailUser(
+            String email,
+            String passwordHash,
+            String name,
+            String phone,
+            UserRole role,
+            Long golfCourseId
+    ) {
+        User user = new User();
+        user.email = email;
+        user.passwordHash = passwordHash;
+        user.name = name;
+        user.phone = phone;
+        user.role = role;
+        user.golfCourseId = golfCourseId;
+        user.emailVerified = false;
+        user.status = UserStatus.PENDING;
+        user.isDeleted = false;
+        return user;
+    }
+
+    // 승인 완료 계정으로 전환
+    public void approve(Long approvedBy) {
+        this.status = UserStatus.ACTIVE;
+        this.approvedBy = approvedBy;
+        this.approvedAt = LocalDateTime.now();
+    }
+
+    // 로그인 성공 시각 갱신
+    public void recordLogin() {
+        this.lastLoginAt = LocalDateTime.now();
+    }
 }
