@@ -10,8 +10,6 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.stream.Collectors;
-
 // 전체 컨트롤러에서 발생하는 예외를 한 곳에서 처리하고 공통 에러 응답으로 변환한다.
 // 새로운 예외 유형이 필요하면 @ExceptionHandler 메서드를 여기에 추가한다.
 @Slf4j
@@ -28,13 +26,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(errorCode.getCode(), e.getMessage()));
     }
 
-    // @Valid 유효성 검증 실패 처리 — 요청 DTO 필드 검증이 실패한 경우
-    // 여러 필드가 동시에 실패하면 메시지를 쉼표로 합쳐서 반환한다
+    // @Valid 유효성 검증 실패 처리 — 첫 번째 필드 오류 메시지를 공통 응답으로 반환한다.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
-                .collect(Collectors.joining(", "));
+                .findFirst()
+                .orElse(ErrorCode.INVALID_REQUEST.getMessage());
         log.warn("ValidationException: {}", message);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
