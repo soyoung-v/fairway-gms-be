@@ -14,7 +14,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 //   - ADMIN  → 요청 헤더 X-Selected-Golf-Course-Id에서 골프장 ID를 읽는다.
 //   - MANAGER, CADDY → 로그인 토큰에 있는 소속 골프장 ID를 그대로 사용한다.
 //
-// 중요: RequestBody나 QueryParam의 golfCourseId는 권한 판단 기준으로 사용하지 않는다.
+// 중요: RequestBody, QueryParam, Header의 golfCourseId는 권한 판단 기준으로 사용하지 않는다.
 //       사용자가 임의로 다른 골프장 ID를 넣어도 이 메서드에서 차단된다.
 @Component
 public class GolfCourseContextResolver {
@@ -23,12 +23,11 @@ public class GolfCourseContextResolver {
     public static final String SELECTED_GOLF_COURSE_HEADER = "X-Selected-Golf-Course-Id";
 
     // 현재 로그인한 사용자의 역할을 기준으로 대상 골프장 ID를 반환한다.
-    // TODO: JWT 인증 구현 후 SecurityContext에서 직접 AuthenticatedUser를 꺼내는 방식으로 개선 예정
     public Long resolveTargetGolfCourseId(AuthenticatedUser user) {
         return switch (user.getRole()) {
             // ADMIN은 헤더에서 선택한 골프장을 읽는다
             case ADMIN -> resolveAdminGolfCourseId();
-            // MANAGER, CADDY는 자신의 소속 골프장을 사용한다
+            // MANAGER, CADDY는 요청 헤더를 신뢰하지 않고 자신의 소속 골프장을 사용한다
             case MANAGER, CADDY -> resolveOwnGolfCourseId(user);
         };
     }

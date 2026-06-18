@@ -1,5 +1,9 @@
 package com.fairwaygms.fairwaygmsbe.common.config;
 
+import com.fairwaygms.fairwaygmsbe.common.security.JwtAuthenticationFilter;
+import com.fairwaygms.fairwaygmsbe.common.security.JwtProperties;
+import com.fairwaygms.fairwaygmsbe.common.security.SecurityWhitelist;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,34 +12,23 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
-
-    // 비로그인 접근 허용 경로
-    private static final String[] PERMIT_ALL_PATHS = {
-            "/api/auth/login",
-            "/api/auth/signup",
-            "/api/auth/check-email",
-            "/api/auth/token/refresh",
-            "/api/auth/password-reset/request",
-            "/api/auth/password-reset/confirm",
-            "/oauth2/**",
-            "/login/oauth2/**",
-            "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/v3/api-docs/**",
-            "/actuator/health"
-    };
 
     // REST API 기본 보안 필터 체인
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter
+    ) throws Exception {
         return http
-                // REST API는 세션 쿠키 기반 CSRF 보호를 사용하지 않는다.
+                // TODO: 쿠키 인증 프론트 연동 시 CORS와 CSRF 방어 정책을 함께 확정
                 .csrf(csrf -> csrf.disable())
-                // JWT 도입 예정이므로 서버 세션을 만들지 않는다.
+                // JWT 인증을 사용하므로 서버 세션을 만들지 않는다.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // HTML form 로그인 비활성화
                 .formLogin(formLogin -> formLogin.disable())
@@ -43,9 +36,11 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
                 // 공개 API와 Swagger 접근 허용
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(PERMIT_ALL_PATHS).permitAll()
+                        .requestMatchers(SecurityWhitelist.PERMIT_ALL_PATHS).permitAll()
                         .anyRequest().authenticated()
                 )
+                // JWT 인증 필터 연결
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
