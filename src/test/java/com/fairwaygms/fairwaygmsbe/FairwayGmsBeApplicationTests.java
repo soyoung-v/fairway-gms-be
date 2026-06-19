@@ -1,8 +1,8 @@
 package com.fairwaygms.fairwaygmsbe;
 
-import com.fairwaygms.fairwaygmsbe.auth.service.AdminBootstrapService;
-import com.fairwaygms.fairwaygmsbe.auth.service.AdminUserService;
-import com.fairwaygms.fairwaygmsbe.auth.service.AuthService;
+import com.fairwaygms.fairwaygmsbe.auth.application.service.AdminBootstrapService;
+import com.fairwaygms.fairwaygmsbe.auth.application.service.AdminUserService;
+import com.fairwaygms.fairwaygmsbe.auth.application.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;

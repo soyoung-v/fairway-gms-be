@@ -19,7 +19,7 @@ public class GlobalExceptionHandler {
     // 비즈니스 규칙 위반 예외 처리 — Service 계층에서 throw한 BusinessException을 받아 응답으로 변환
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
-        ErrorCode errorCode = e.getErrorCode();
+        ErrorCodeSpec errorCode = e.getErrorCode();
         log.warn("BusinessException: code={}, message={}", errorCode.getCode(), e.getMessage());
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
