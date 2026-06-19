@@ -50,3 +50,9 @@ fairway:
     cookie-secure: false
     cookie-http-only: true
     cookie-same-site: Lax
+  bootstrap:
+    admin:
+      enabled: false
+      email:
+      password:
+      name: 관리자

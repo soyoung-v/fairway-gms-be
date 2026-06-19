@@ -66,6 +66,12 @@ fairway:
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     cookie-http-only: ${JWT_COOKIE_HTTP_ONLY:true}
     cookie-same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+  bootstrap:
+    admin:
+      enabled: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_ENABLED:false}
+      email: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_PASSWORD:}
+      name: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_NAME:관리자}
 
 logging:
   level:

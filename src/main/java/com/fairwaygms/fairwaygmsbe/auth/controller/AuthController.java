@@ -74,6 +74,37 @@ public class AuthController {
                 .body(ApiResponse.success(new MessageResponse("로그아웃되었습니다.")));
     }
 
+    // Refresh Token Rotation 성공 시 새 at/rt 쿠키를 내려준다.
+    @PostMapping("/token/refresh")
+    public ResponseEntity<ApiResponse<?>> refresh(
+            @CookieValue(name = "rt", required = false) String refreshToken
+    ) {
+        try {
+            AuthLoginResult result = authService.refresh(refreshToken);
+            HttpHeaders headers = createCookieHeaders(
+                    jwtCookieProvider.createAccessTokenCookie(result.accessToken()),
+                    jwtCookieProvider.createRefreshTokenCookie(result.refreshToken())
+            );
+            return ResponseEntity
+                    .ok()
+                    .headers(headers)
+                    .body(ApiResponse.success(result.user()));
+        } catch (BusinessException e) {
+            if (isRefreshTokenFailure(e)) {
+                HttpHeaders headers = createCookieHeaders(
+                        jwtCookieProvider.deleteAccessTokenCookie(),
+                        jwtCookieProvider.deleteRefreshTokenCookie()
+                );
+                ErrorCode errorCode = e.getErrorCode();
+                return ResponseEntity
+                        .status(errorCode.getHttpStatus())
+                        .headers(headers)
+                        .body(ApiResponse.fail(errorCode.getCode(), e.getMessage()));
+            }
+            throw e;
+        }
+    }
+
     // SecurityContext의 인증 사용자 기준 내 정보를 조회한다.
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<MeResponse>> me(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
@@ -90,5 +121,13 @@ public class AuthController {
             headers.add(HttpHeaders.SET_COOKIE, cookie.toString());
         }
         return headers;
+    }
+
+    // 재발급 실패는 클라이언트 쿠키를 함께 정리한다.
+    private boolean isRefreshTokenFailure(BusinessException e) {
+        ErrorCode errorCode = e.getErrorCode();
+        return errorCode == ErrorCode.REFRESH_TOKEN_INVALID
+                || errorCode == ErrorCode.REFRESH_TOKEN_EXPIRED
+                || errorCode == ErrorCode.REFRESH_TOKEN_REVOKED;
     }
 }

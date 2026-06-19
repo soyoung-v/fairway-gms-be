@@ -35,12 +35,14 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final TokenHashProvider tokenHashProvider;
+    private final PasswordPolicyValidator passwordPolicyValidator;
 
     // 회원가입은 승인 대기 계정만 생성하고 토큰은 발급하지 않는다.
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         String email = normalizeEmail(request.email());
         validateSignupContext(request.role(), request.golfCourseId());
+        passwordPolicyValidator.validate(request.password());
 
         if (userRepository.existsByEmailAndIsDeletedFalse(email)) {
             throw new BusinessException(ErrorCode.EMAIL_DUPLICATED);
@@ -89,6 +91,38 @@ public class AuthService {
                 .ifPresent(RefreshToken::revoke);
     }
 
+    // Refresh Token Rotation: 기존 토큰 폐기 후 새 at/rt 쿠키용 토큰을 발급한다.
+    @Transactional
+    public AuthLoginResult refresh(String rawRefreshToken) {
+        if (!StringUtils.hasText(rawRefreshToken)) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+        if (!jwtTokenProvider.validateToken(rawRefreshToken)) {
+            throw new BusinessException(jwtTokenProvider.isExpired(rawRefreshToken)
+                    ? ErrorCode.REFRESH_TOKEN_EXPIRED
+                    : ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+        if (!jwtTokenProvider.isRefreshToken(rawRefreshToken)) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        String tokenHash = tokenHashProvider.hash(rawRefreshToken);
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHashAndIsDeletedFalse(tokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID));
+        validateRefreshTokenStatus(storedToken);
+
+        User user = userRepository.findByIdAndIsDeletedFalse(jwtTokenProvider.getUserId(rawRefreshToken))
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateLoginStatus(user);
+
+        storedToken.revoke();
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getRole(), user.getGolfCourseId());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getRole(), user.getGolfCourseId());
+        saveRefreshToken(user.getId(), newRefreshToken);
+
+        return new AuthLoginResult(AuthUserResponse.from(user), newAccessToken, newRefreshToken);
+    }
+
     // SecurityContext의 사용자 ID로 현재 계정을 조회한다.
     @Transactional(readOnly = true)
     public MeResponse getMe(Long userId) {
@@ -128,6 +162,19 @@ public class AuthService {
             throw new BusinessException(ErrorCode.ACCOUNT_WITHDRAWN);
         }
         throw new BusinessException(ErrorCode.FORBIDDEN, "활성 상태가 아닌 계정입니다.");
+    }
+
+    // DB에 저장된 Refresh Token 상태 검증
+    private void validateRefreshTokenStatus(RefreshToken refreshToken) {
+        if (Boolean.TRUE.equals(refreshToken.getIsRevoked())) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_REVOKED);
+        }
+        if (Boolean.TRUE.equals(refreshToken.getIsDeleted())) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+        if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_EXPIRED);
+        }
     }
 
     // DB에는 Refresh Token 원문 대신 SHA-256 해시만 저장한다.

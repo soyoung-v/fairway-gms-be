@@ -115,9 +115,31 @@ public class User extends BaseEntity {
         return user;
     }
 
+    // 초기 ADMIN 계정 생성
+    public static User createInitialAdmin(String email, String passwordHash, String name) {
+        User user = new User();
+        user.email = email;
+        user.passwordHash = passwordHash;
+        user.name = name;
+        user.role = UserRole.ADMIN;
+        user.golfCourseId = null;
+        user.emailVerified = true;
+        user.status = UserStatus.ACTIVE;
+        user.approvedAt = LocalDateTime.now();
+        user.isDeleted = false;
+        return user;
+    }
+
     // 승인 완료 계정으로 전환
     public void approve(Long approvedBy) {
         this.status = UserStatus.ACTIVE;
+        this.approvedBy = approvedBy;
+        this.approvedAt = LocalDateTime.now();
+    }
+
+    // 가입 요청 거절
+    public void reject(Long approvedBy) {
+        this.status = UserStatus.REJECTED;
         this.approvedBy = approvedBy;
         this.approvedAt = LocalDateTime.now();
     }

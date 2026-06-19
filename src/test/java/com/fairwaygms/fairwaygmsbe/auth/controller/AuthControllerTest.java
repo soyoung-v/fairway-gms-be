@@ -4,6 +4,8 @@ import com.fairwaygms.fairwaygmsbe.auth.dto.AuthUserResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.service.AuthLoginResult;
 import com.fairwaygms.fairwaygmsbe.auth.service.AuthService;
+import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtCookieProvider;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtProperties;
@@ -67,5 +69,48 @@ class AuthControllerTest {
         assertThat(cookies.get(1)).contains("rt=refresh-token", "Path=/api/auth/token/refresh", "HttpOnly");
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getData()).isEqualTo(user);
+    }
+
+    @Test
+    void refreshReturnsRotatedCookies() {
+        // given
+        AuthUserResponse user = new AuthUserResponse(
+                1L,
+                "admin@test.com",
+                "관리자",
+                UserRole.ADMIN,
+                null
+        );
+        when(authService.refresh("old-refresh-token"))
+                .thenReturn(new AuthLoginResult(user, "new-access-token", "new-refresh-token"));
+
+        // when
+        ResponseEntity<ApiResponse<?>> response = authController.refresh("old-refresh-token");
+
+        // then
+        List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+        assertThat(cookies).hasSize(2);
+        assertThat(cookies.get(0)).contains("at=new-access-token");
+        assertThat(cookies.get(1)).contains("rt=new-refresh-token");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isEqualTo(user);
+    }
+
+    @Test
+    void refreshFailureDeletesCookies() {
+        // given
+        when(authService.refresh(null)).thenThrow(new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID));
+
+        // when
+        ResponseEntity<ApiResponse<?>> response = authController.refresh(null);
+
+        // then
+        List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+        assertThat(cookies).hasSize(2);
+        assertThat(cookies.get(0)).contains("at=", "Max-Age=0");
+        assertThat(cookies.get(1)).contains("rt=", "Max-Age=0");
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo("REFRESH_TOKEN_INVALID");
     }
 }

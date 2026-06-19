@@ -1,5 +1,7 @@
 package com.fairwaygms.fairwaygmsbe;
 
+import com.fairwaygms.fairwaygmsbe.auth.service.AdminBootstrapService;
+import com.fairwaygms.fairwaygmsbe.auth.service.AdminUserService;
 import com.fairwaygms.fairwaygmsbe.auth.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,6 +14,12 @@ class FairwayGmsBeApplicationTests {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private AdminBootstrapService adminBootstrapService;
+
+    @MockitoBean
+    private AdminUserService adminUserService;
 
     @Test
     void contextLoads() {

@@ -25,6 +25,9 @@ public enum ErrorCode {
     // Refresh Token이 만료된 경우 — 클라이언트는 재로그인해야 한다
     REFRESH_TOKEN_EXPIRED("REFRESH_TOKEN_EXPIRED", "리프레시 토큰이 만료되었습니다.", HttpStatus.UNAUTHORIZED),
 
+    // Refresh Token이 이미 폐기된 경우
+    REFRESH_TOKEN_REVOKED("REFRESH_TOKEN_REVOKED", "폐기된 리프레시 토큰입니다.", HttpStatus.UNAUTHORIZED),
+
     // 권한이 없는 API에 접근한 경우 (예: CADDY가 MANAGER 전용 API 호출)
     FORBIDDEN("FORBIDDEN", "접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
 
@@ -67,6 +70,9 @@ public enum ErrorCode {
 
     // 비밀번호가 정책(8~30자, 영문·숫자·특수문자 포함, 공백 불가)을 충족하지 않는 경우
     INVALID_PASSWORD("INVALID_PASSWORD", "비밀번호 정책을 충족하지 않습니다.", HttpStatus.BAD_REQUEST),
+
+    // 초기 관리자 계정 생성 설정이 올바르지 않은 경우
+    ADMIN_BOOTSTRAP_REQUIRED("ADMIN_BOOTSTRAP_REQUIRED", "초기 관리자 계정 설정이 필요합니다.", HttpStatus.INTERNAL_SERVER_ERROR),
 
     // 이미 승인 또는 거절 처리된 가입 요청에 중복 처리 시도한 경우
     ALREADY_PROCESSED("ALREADY_PROCESSED", "이미 처리된 요청입니다.", HttpStatus.CONFLICT),

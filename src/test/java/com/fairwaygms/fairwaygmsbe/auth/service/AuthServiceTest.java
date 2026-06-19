@@ -49,19 +49,23 @@ class AuthServiceTest {
     @Mock
     private TokenHashProvider tokenHashProvider;
 
+    private PasswordPolicyValidator passwordPolicyValidator;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         JwtProperties jwtProperties = new JwtProperties();
         jwtProperties.setRefreshTokenValiditySeconds(1209600);
+        passwordPolicyValidator = new PasswordPolicyValidator();
         authService = new AuthService(
                 userRepository,
                 refreshTokenRepository,
                 passwordEncoder,
                 jwtTokenProvider,
                 jwtProperties,
-                tokenHashProvider
+                tokenHashProvider,
+                passwordPolicyValidator
         );
     }
 
@@ -164,6 +168,54 @@ class AuthServiceTest {
 
         // then
         assertThat(refreshToken.getIsRevoked()).isTrue();
+    }
+
+    @Test
+    void refreshRotatesRefreshToken() {
+        // given
+        User user = activeUser();
+        RefreshToken storedToken = RefreshToken.create(1L, "old-refresh-hash",
+                java.time.LocalDateTime.now().plusDays(14));
+        when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.isRefreshToken("old-refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.getUserId("old-refresh-token")).thenReturn(1L);
+        when(tokenHashProvider.hash("old-refresh-token")).thenReturn("old-refresh-hash");
+        when(refreshTokenRepository.findByTokenHashAndIsDeletedFalse("old-refresh-hash"))
+                .thenReturn(Optional.of(storedToken));
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(jwtTokenProvider.createAccessToken(1L, UserRole.MANAGER, 10L)).thenReturn("new-access-token");
+        when(jwtTokenProvider.createRefreshToken(1L, UserRole.MANAGER, 10L)).thenReturn("new-refresh-token");
+        when(tokenHashProvider.hash("new-refresh-token")).thenReturn("new-refresh-hash");
+
+        // when
+        AuthLoginResult result = authService.refresh("old-refresh-token");
+
+        // then
+        assertThat(storedToken.getIsRevoked()).isTrue();
+        assertThat(result.accessToken()).isEqualTo("new-access-token");
+        assertThat(result.refreshToken()).isEqualTo("new-refresh-token");
+
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getTokenHash()).isEqualTo("new-refresh-hash");
+    }
+
+    @Test
+    void refreshThrowsWhenRefreshTokenRevoked() {
+        // given
+        RefreshToken storedToken = RefreshToken.create(1L, "refresh-hash",
+                java.time.LocalDateTime.now().plusDays(14));
+        storedToken.revoke();
+        when(jwtTokenProvider.validateToken("refresh-token")).thenReturn(true);
+        when(jwtTokenProvider.isRefreshToken("refresh-token")).thenReturn(true);
+        when(tokenHashProvider.hash("refresh-token")).thenReturn("refresh-hash");
+        when(refreshTokenRepository.findByTokenHashAndIsDeletedFalse("refresh-hash"))
+                .thenReturn(Optional.of(storedToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.refresh("refresh-token"))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.REFRESH_TOKEN_REVOKED));
     }
 
     @Test

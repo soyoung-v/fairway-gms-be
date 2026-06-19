@@ -76,6 +76,11 @@ public class JwtTokenProvider {
         return TOKEN_TYPE_ACCESS.equals(getTokenType(token));
     }
 
+    // Refresh Token 타입 여부 확인
+    public boolean isRefreshToken(String token) {
+        return TOKEN_TYPE_REFRESH.equals(getTokenType(token));
+    }
+
     // 토큰에서 userId 추출
     public Long getUserId(String token) {
         return Long.valueOf(parseClaims(token).getSubject());
