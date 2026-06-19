@@ -3,9 +3,11 @@ package com.fairwaygms.fairwaygmsbe.auth.controller;
 import com.fairwaygms.fairwaygmsbe.auth.dto.AuthUserResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.ChangePasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.CheckEmailResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ForgotPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MessageResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ResetPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupResponse;
 import com.fairwaygms.fairwaygmsbe.auth.service.AuthLoginResult;
@@ -133,6 +135,25 @@ public class AuthController {
         }
         authService.changePassword(authenticatedUser.getUserId(), request);
         return ResponseEntity.ok(ApiResponse.success(new MessageResponse("비밀번호가 변경되었습니다.")));
+    }
+
+    // 이메일 미존재 여부는 노출하지 않고 항상 성공 응답을 반환한다.
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<ApiResponse<MessageResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authService.requestPasswordReset(request);
+        return ResponseEntity.ok(ApiResponse.success(
+                new MessageResponse("입력한 이메일로 비밀번호 재설정 링크를 발송했습니다.")));
+    }
+
+    // 토큰과 새 비밀번호를 받아 비밀번호를 재설정한다.
+    @PostMapping("/password-reset/confirm")
+    public ResponseEntity<ApiResponse<MessageResponse>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success(new MessageResponse("비밀번호가 재설정되었습니다.")));
     }
 
     // SecurityContext의 인증 사용자 기준 내 정보를 조회한다.

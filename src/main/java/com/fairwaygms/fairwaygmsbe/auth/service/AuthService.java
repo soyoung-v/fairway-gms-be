@@ -1,14 +1,18 @@
 package com.fairwaygms.fairwaygmsbe.auth.service;
 
+import com.fairwaygms.fairwaygmsbe.auth.domain.PasswordResetToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.dto.AuthUserResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.ChangePasswordRequest;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ForgotPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ResetPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupResponse;
+import com.fairwaygms.fairwaygmsbe.auth.repository.PasswordResetTokenRepository;
 import com.fairwaygms.fairwaygmsbe.auth.repository.RefreshTokenRepository;
 import com.fairwaygms.fairwaygmsbe.auth.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
@@ -23,20 +27,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final long PASSWORD_RESET_VALIDITY_MINUTES = 30L;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtProperties jwtProperties;
     private final TokenHashProvider tokenHashProvider;
     private final PasswordPolicyValidator passwordPolicyValidator;
+    private final EmailService emailService;
 
     // 회원가입은 승인 대기 계정만 생성하고 토큰은 발급하지 않는다.
     @Transactional
@@ -140,6 +152,45 @@ public class AuthService {
         user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
     }
 
+    // 이메일 미존재 여부는 노출하지 않는다 — 항상 성공 응답을 반환한다.
+    @Transactional
+    public void requestPasswordReset(ForgotPasswordRequest request) {
+        String email = normalizeEmail(request.email());
+        userRepository.findByEmailAndIsDeletedFalse(email).ifPresent(user -> {
+            // 기존 미사용 토큰을 모두 무효화하고 새 토큰을 발급한다.
+            List<PasswordResetToken> oldTokens =
+                    passwordResetTokenRepository.findAllByUserIdAndIsUsedFalseAndIsDeletedFalse(user.getId());
+            oldTokens.forEach(PasswordResetToken::softDelete);
+
+            String rawToken = generateSecureToken();
+            String tokenHash = tokenHashProvider.hash(rawToken);
+            LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(PASSWORD_RESET_VALIDITY_MINUTES);
+            passwordResetTokenRepository.save(PasswordResetToken.create(user.getId(), tokenHash, expiresAt));
+
+            emailService.sendPasswordResetEmail(email, rawToken);
+        });
+    }
+
+    // 토큰이 유효하면 비밀번호를 변경하고 토큰을 사용 완료 처리한다.
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String tokenHash = tokenHashProvider.hash(request.token());
+        PasswordResetToken resetToken = passwordResetTokenRepository
+                .findByTokenHashAndIsUsedFalseAndIsDeletedFalse(tokenHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
+
+        if (resetToken.isExpired()) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+
+        User user = userRepository.findByIdAndIsDeletedFalse(resetToken.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        passwordPolicyValidator.validate(request.newPassword());
+        user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+        resetToken.markUsed();
+    }
+
     // SecurityContext의 사용자 ID로 현재 계정을 조회한다.
     @Transactional(readOnly = true)
     public MeResponse getMe(Long userId) {
@@ -200,6 +251,13 @@ public class AuthService {
         LocalDateTime expiresAt = LocalDateTime.now()
                 .plusSeconds(jwtProperties.getRefreshTokenValiditySeconds());
         refreshTokenRepository.save(RefreshToken.create(userId, tokenHash, expiresAt));
+    }
+
+    // URL-safe Base64로 인코딩된 32바이트 랜덤 토큰을 생성한다.
+    private String generateSecureToken() {
+        byte[] bytes = new byte[32];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     // 이메일 중복과 로그인 조회 기준 통일

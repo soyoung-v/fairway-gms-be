@@ -58,4 +58,27 @@ public class PasswordResetToken extends BaseEntity {
     // 소프트 삭제 시각
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    public static PasswordResetToken create(Long userId, String tokenHash, LocalDateTime expiresAt) {
+        PasswordResetToken token = new PasswordResetToken();
+        token.userId = userId;
+        token.tokenHash = tokenHash;
+        token.expiresAt = expiresAt;
+        token.isUsed = false;
+        token.isDeleted = false;
+        return token;
+    }
+
+    public void markUsed() {
+        this.isUsed = true;
+    }
+
+    public void softDelete() {
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isExpired() {
+        return LocalDateTime.now().isAfter(this.expiresAt);
+    }
 }

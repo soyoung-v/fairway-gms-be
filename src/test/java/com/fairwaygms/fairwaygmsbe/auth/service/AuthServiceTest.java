@@ -1,12 +1,16 @@
 package com.fairwaygms.fairwaygmsbe.auth.service;
 
+import com.fairwaygms.fairwaygmsbe.auth.domain.PasswordResetToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.dto.ChangePasswordRequest;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ForgotPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ResetPasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
+import com.fairwaygms.fairwaygmsbe.auth.repository.PasswordResetTokenRepository;
 import com.fairwaygms.fairwaygmsbe.auth.repository.RefreshTokenRepository;
 import com.fairwaygms.fairwaygmsbe.auth.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
@@ -24,6 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +49,13 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private EmailService emailService;
 
     @Mock
     private JwtTokenProvider jwtTokenProvider;
@@ -62,11 +75,13 @@ class AuthServiceTest {
         authService = new AuthService(
                 userRepository,
                 refreshTokenRepository,
+                passwordResetTokenRepository,
                 passwordEncoder,
                 jwtTokenProvider,
                 jwtProperties,
                 tokenHashProvider,
-                passwordPolicyValidator
+                passwordPolicyValidator,
+                emailService
         );
     }
 
@@ -299,6 +314,71 @@ class AuthServiceTest {
                 new ChangePasswordRequest("password123!", "onlyletters1")))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_PASSWORD));
+    }
+
+    @Test
+    void requestPasswordResetSendsEmail() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(Optional.of(user));
+        when(passwordResetTokenRepository.findAllByUserIdAndIsUsedFalseAndIsDeletedFalse(1L))
+                .thenReturn(Collections.emptyList());
+        when(passwordResetTokenRepository.save(any(PasswordResetToken.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(tokenHashProvider.hash(any())).thenReturn("token-hash");
+
+        // when
+        authService.requestPasswordReset(new ForgotPasswordRequest("manager@test.com"));
+
+        // then
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+        verify(emailService).sendPasswordResetEmail(org.mockito.ArgumentMatchers.eq("manager@test.com"), any());
+    }
+
+    @Test
+    void requestPasswordResetSilentWhenEmailNotFound() {
+        // given
+        when(userRepository.findByEmailAndIsDeletedFalse("unknown@test.com")).thenReturn(Optional.empty());
+
+        // when — 이메일 미존재 시 예외 없이 정상 반환해야 한다
+        authService.requestPasswordReset(new ForgotPasswordRequest("unknown@test.com"));
+
+        // then
+        org.mockito.Mockito.verifyNoInteractions(emailService);
+        org.mockito.Mockito.verifyNoInteractions(passwordResetTokenRepository);
+    }
+
+    @Test
+    void resetPasswordSucceeds() {
+        // given
+        User user = activeUser();
+        PasswordResetToken resetToken = PasswordResetToken.create(
+                1L, "token-hash", LocalDateTime.now().plusMinutes(30));
+        when(tokenHashProvider.hash("raw-token")).thenReturn("token-hash");
+        when(passwordResetTokenRepository.findByTokenHashAndIsUsedFalseAndIsDeletedFalse("token-hash"))
+                .thenReturn(Optional.of(resetToken));
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPass456!")).thenReturn("new-encoded");
+
+        // when
+        authService.resetPassword(new ResetPasswordRequest("raw-token", "newPass456!"));
+
+        // then
+        assertThat(user.getPasswordHash()).isEqualTo("new-encoded");
+        assertThat(resetToken.getIsUsed()).isTrue();
+    }
+
+    @Test
+    void resetPasswordThrowsWhenTokenInvalid() {
+        // given
+        when(tokenHashProvider.hash("bad-token")).thenReturn("bad-hash");
+        when(passwordResetTokenRepository.findByTokenHashAndIsUsedFalseAndIsDeletedFalse("bad-hash"))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.resetPassword(new ResetPasswordRequest("bad-token", "newPass456!")))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_TOKEN));
     }
 
     private User activeUser() {

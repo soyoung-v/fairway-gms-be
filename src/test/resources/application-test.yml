@@ -4,6 +4,17 @@ spring:
       - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
       - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
       - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration
+  mail:
+    host: localhost
+    port: 25
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
   security:
     oauth2:
       client:

@@ -66,6 +66,8 @@ fairway:
     cookie-secure: ${JWT_COOKIE_SECURE:false}
     cookie-http-only: ${JWT_COOKIE_HTTP_ONLY:true}
     cookie-same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+  app:
+    frontend-url: ${FAIRWAY_GMS_FRONTEND_URL:http://localhost:5173}
   bootstrap:
     admin:
       enabled: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_ENABLED:false}
