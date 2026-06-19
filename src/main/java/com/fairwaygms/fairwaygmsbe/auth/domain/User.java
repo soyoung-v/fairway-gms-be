@@ -148,4 +148,9 @@ public class User extends BaseEntity {
     public void recordLogin() {
         this.lastLoginAt = LocalDateTime.now();
     }
+
+    // 비밀번호 변경 — 반드시 BCrypt 해시된 값을 전달해야 한다.
+    public void changePasswordHash(String newPasswordHash) {
+        this.passwordHash = newPasswordHash;
+    }
 }

@@ -4,6 +4,7 @@ import com.fairwaygms.fairwaygmsbe.auth.domain.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.dto.AuthUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ChangePasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
@@ -121,6 +122,22 @@ public class AuthService {
         saveRefreshToken(user.getId(), newRefreshToken);
 
         return new AuthLoginResult(AuthUserResponse.from(user), newAccessToken, newRefreshToken);
+    }
+
+    // 이메일 사용 가능 여부 반환. true이면 가입 가능한 이메일이다.
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailable(String email) {
+        return !userRepository.existsByEmailAndIsDeletedFalse(normalizeEmail(email));
+    }
+
+    // 현재 비밀번호 검증 후 새 비밀번호로 교체한다.
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validatePassword(user, request.currentPassword());
+        passwordPolicyValidator.validate(request.newPassword());
+        user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
     }
 
     // SecurityContext의 사용자 ID로 현재 계정을 조회한다.

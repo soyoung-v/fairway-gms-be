@@ -3,6 +3,7 @@ package com.fairwaygms.fairwaygmsbe.auth.service;
 import com.fairwaygms.fairwaygmsbe.auth.domain.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.UserStatus;
+import com.fairwaygms.fairwaygmsbe.auth.dto.ChangePasswordRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.LoginRequest;
 import com.fairwaygms.fairwaygmsbe.auth.dto.MeResponse;
 import com.fairwaygms.fairwaygmsbe.auth.dto.SignupRequest;
@@ -231,6 +232,73 @@ class AuthServiceTest {
         assertThat(response.userId()).isEqualTo(1L);
         assertThat(response.email()).isEqualTo("manager@test.com");
         assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void checkEmailReturnsTrueWhenAvailable() {
+        // given
+        when(userRepository.existsByEmailAndIsDeletedFalse("new@test.com")).thenReturn(false);
+
+        // when
+        boolean available = authService.isEmailAvailable("new@test.com");
+
+        // then
+        assertThat(available).isTrue();
+    }
+
+    @Test
+    void checkEmailReturnsFalseWhenDuplicated() {
+        // given
+        when(userRepository.existsByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(true);
+
+        // when
+        boolean available = authService.isEmailAvailable("manager@test.com");
+
+        // then
+        assertThat(available).isFalse();
+    }
+
+    @Test
+    void changePasswordSucceeds() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password123!", "encoded-password")).thenReturn(true);
+        when(passwordEncoder.encode("newPass456!")).thenReturn("new-encoded-password");
+
+        // when
+        authService.changePassword(1L, new ChangePasswordRequest("password123!", "newPass456!"));
+
+        // then
+        assertThat(user.getPasswordHash()).isEqualTo("new-encoded-password");
+    }
+
+    @Test
+    void changePasswordThrowsWhenCurrentPasswordInvalid() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrongPass!", "encoded-password")).thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.changePassword(1L,
+                new ChangePasswordRequest("wrongPass!", "newPass456!")))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+    }
+
+    @Test
+    void changePasswordThrowsWhenNewPasswordViolatesPolicy() {
+        // given
+        User user = activeUser();
+        when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("password123!", "encoded-password")).thenReturn(true);
+
+        // when & then — 특수문자 없는 비밀번호
+        assertThatThrownBy(() -> authService.changePassword(1L,
+                new ChangePasswordRequest("password123!", "onlyletters1")))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_PASSWORD));
     }
 
     private User activeUser() {
