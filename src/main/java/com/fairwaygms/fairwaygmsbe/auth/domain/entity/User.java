@@ -138,8 +138,10 @@ public class User extends BaseEntity {
         this.passwordHash = newPasswordHash;
     }
 
+    // 탈퇴/퇴사 처리 — 이메일 unique 제약을 유지하면서 원본 이메일을 재사용 가능하도록 익명화한다.
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
+        this.email = "withdrawn_" + this.id + "@deleted.invalid";
         this.isDeleted = true;
         this.deletedAt = LocalDateTime.now();
     }
