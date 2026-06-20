@@ -3,6 +3,7 @@ package com.fairwaygms.fairwaygmsbe.common.config;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtAuthenticationFilter;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtProperties;
 import com.fairwaygms.fairwaygmsbe.common.security.SecurityWhitelist;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,11 +14,19 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
+
+    @Value("${fairway.app.frontend-url}")
+    private String frontendUrl;
 
     // REST API 기본 보안 필터 체인
     @Bean
@@ -26,7 +35,7 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) throws Exception {
         return http
-                // TODO: 쿠키 인증 프론트 연동 시 CORS와 CSRF 방어 정책을 함께 확정
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 // JWT 인증을 사용하므로 서버 세션을 만들지 않는다.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -42,6 +51,21 @@ public class SecurityConfig {
                 // JWT 인증 필터 연결
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    // withCredentials: true (HttpOnly Cookie) 사용 시 allowedOrigins에 * 사용 불가
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(frontendUrl));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "X-Selected-Golf-Course-Id"));
+        config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     // 비밀번호 BCrypt 해시 인코더
