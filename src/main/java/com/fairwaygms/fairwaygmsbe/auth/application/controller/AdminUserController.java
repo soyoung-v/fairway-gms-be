@@ -47,4 +47,13 @@ public class AdminUserController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.rejectUser(admin, userId)));
     }
+
+    // ADMIN 전용 Manager 퇴사 처리
+    @PatchMapping("/{userId}/withdraw")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> withdrawManager(
+            @AuthenticationPrincipal AuthenticatedUser admin,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(adminUserService.withdrawManager(admin, userId)));
+    }
 }

@@ -61,6 +61,21 @@ public class AdminUserService {
         return AdminUserResponse.from(user);
     }
 
+    // ACTIVE Manager만 퇴사 처리할 수 있다.
+    @Transactional
+    public AdminUserResponse withdrawManager(AuthenticatedUser admin, Long userId) {
+        validateAdmin(admin);
+        User user = getUser(userId);
+        if (user.getRole() != UserRole.MANAGER) {
+            throw new BusinessException(AuthErrorCode.INVALID_ROLE, "Manager 계정만 퇴사 처리할 수 있습니다.");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "활성 상태의 Manager만 퇴사 처리할 수 있습니다.");
+        }
+        user.withdraw();
+        return AdminUserResponse.from(user);
+    }
+
     // Method Security를 켜지 않고 Service 내부에서 ADMIN 권한을 검증한다.
     private void validateAdmin(AuthenticatedUser user) {
         if (user == null || user.getRole() != UserRole.ADMIN) {

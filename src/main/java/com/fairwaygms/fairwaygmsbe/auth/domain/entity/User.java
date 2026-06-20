@@ -137,4 +137,10 @@ public class User extends BaseEntity {
     public void changePasswordHash(String newPasswordHash) {
         this.passwordHash = newPasswordHash;
     }
+
+    public void withdraw() {
+        this.status = UserStatus.WITHDRAWN;
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
 }
