@@ -1,14 +1,14 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.controller;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ChangePasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ForgotPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.LoginRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ResetPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.SignupRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AuthUserResponse;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.CheckEmailResponse;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.MeResponse;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.SignupResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ChangePasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ForgotPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.LoginReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ResetPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.SignupReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AuthUserRes;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.CheckEmailRes;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.MeRes;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.SignupRes;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AuthLoginResult;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AuthService;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
@@ -47,14 +47,14 @@ public class AuthController {
 
     // 회원가입 후 승인 대기 상태를 반환하고 토큰은 발급하지 않는다.
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
-        SignupResponse response = authService.signup(request);
+    public ResponseEntity<ApiResponse<SignupRes>> signup(@Valid @RequestBody SignupReq request) {
+        SignupRes response = authService.signup(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     // 로그인 성공 시 JWT 원문은 body가 아니라 HttpOnly Cookie로만 내려준다.
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthUserResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthUserRes>> login(@Valid @RequestBody LoginReq request) {
         AuthLoginResult result = authService.login(request);
         HttpHeaders headers = createCookieHeaders(
                 jwtCookieProvider.createAccessTokenCookie(result.accessToken()),
@@ -104,18 +104,18 @@ public class AuthController {
 
     // 이메일 중복 여부를 반환한다. available=true이면 가입 가능하다.
     @GetMapping("/check-email")
-    public ResponseEntity<ApiResponse<CheckEmailResponse>> checkEmail(
+    public ResponseEntity<ApiResponse<CheckEmailRes>> checkEmail(
             @RequestParam @NotBlank(message = "이메일은 필수입니다.")
             @Email(message = "올바른 이메일 형식이 아닙니다.") String email
     ) {
-        return ResponseEntity.ok(ApiResponse.success(CheckEmailResponse.of(authService.isEmailAvailable(email))));
+        return ResponseEntity.ok(ApiResponse.success(CheckEmailRes.of(authService.isEmailAvailable(email))));
     }
 
     // 현재 비밀번호를 검증한 후 새 비밀번호로 변경한다.
     @PatchMapping("/me/password")
     public ResponseEntity<ApiResponse<MessageResponse>> changePassword(
             @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
-            @Valid @RequestBody ChangePasswordRequest request
+            @Valid @RequestBody ChangePasswordReq request
     ) {
         if (authenticatedUser == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -127,7 +127,7 @@ public class AuthController {
     // 이메일 미존재 여부는 노출하지 않고 항상 성공 응답을 반환한다.
     @PostMapping("/password-reset/request")
     public ResponseEntity<ApiResponse<MessageResponse>> forgotPassword(
-            @Valid @RequestBody ForgotPasswordRequest request
+            @Valid @RequestBody ForgotPasswordReq request
     ) {
         authService.requestPasswordReset(request);
         return ResponseEntity.ok(ApiResponse.success(new MessageResponse("입력한 이메일로 비밀번호 재설정 링크를 발송했습니다.")));
@@ -136,7 +136,7 @@ public class AuthController {
     // 토큰과 새 비밀번호를 받아 비밀번호를 재설정한다.
     @PostMapping("/password-reset/confirm")
     public ResponseEntity<ApiResponse<MessageResponse>> resetPassword(
-            @Valid @RequestBody ResetPasswordRequest request
+            @Valid @RequestBody ResetPasswordReq request
     ) {
         authService.resetPassword(request);
         return ResponseEntity.ok(ApiResponse.success(new MessageResponse("비밀번호가 재설정되었습니다.")));
@@ -144,7 +144,7 @@ public class AuthController {
 
     // SecurityContext의 인증 사용자 기준 내 정보를 조회한다.
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<MeResponse>> me(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+    public ResponseEntity<ApiResponse<MeRes>> me(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
         if (authenticatedUser == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }

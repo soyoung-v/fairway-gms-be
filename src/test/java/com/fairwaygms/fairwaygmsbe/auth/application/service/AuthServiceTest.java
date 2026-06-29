@@ -1,11 +1,11 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.service;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ChangePasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ForgotPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.LoginRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ResetPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.SignupRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.MeResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ChangePasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ForgotPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.LoginReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ResetPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.SignupReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.MeRes;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.PasswordResetToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
@@ -68,7 +68,7 @@ class AuthServiceTest {
     @Test
     void signupStoresPasswordHash() {
         // given
-        SignupRequest request = new SignupRequest("MANAGER@Test.com", "password123!", "테스트 매니저", "010-1234-5678", UserRole.MANAGER, 1L);
+        SignupReq request = new SignupReq("MANAGER@Test.com", "password123!", "테스트 매니저", "010-1234-5678", UserRole.MANAGER, 1L);
         when(userRepository.existsByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(false);
         when(passwordEncoder.encode("password123!")).thenReturn("encoded-password");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -89,7 +89,7 @@ class AuthServiceTest {
     @Test
     void signupThrowsWhenEmailDuplicated() {
         // given
-        SignupRequest request = new SignupRequest("manager@test.com", "password123!", "테스트 매니저", null, UserRole.MANAGER, 1L);
+        SignupReq request = new SignupReq("manager@test.com", "password123!", "테스트 매니저", null, UserRole.MANAGER, 1L);
         when(userRepository.existsByEmailAndIsDeletedFalse("manager@test.com")).thenReturn(true);
 
         // when & then
@@ -109,7 +109,7 @@ class AuthServiceTest {
         when(tokenHashProvider.hash("refresh-token")).thenReturn("refresh-hash");
 
         // when
-        AuthLoginResult result = authService.login(new LoginRequest("manager@test.com", "password123!"));
+        AuthLoginResult result = authService.login(new LoginReq("manager@test.com", "password123!"));
 
         // then
         assertThat(result.accessToken()).isEqualTo("access-token");
@@ -132,7 +132,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrong", "encoded-password")).thenReturn(false);
 
         // when & then
-        assertThatThrownBy(() -> authService.login(new LoginRequest("manager@test.com", "wrong")))
+        assertThatThrownBy(() -> authService.login(new LoginReq("manager@test.com", "wrong")))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_CREDENTIALS));
     }
@@ -202,7 +202,7 @@ class AuthServiceTest {
         when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
 
         // when
-        MeResponse response = authService.getMe(1L);
+        MeRes response = authService.getMe(1L);
 
         // then
         assertThat(response.userId()).isEqualTo(1L);
@@ -231,7 +231,7 @@ class AuthServiceTest {
         when(passwordEncoder.encode("newPass456!")).thenReturn("new-encoded-password");
 
         // when
-        authService.changePassword(1L, new ChangePasswordRequest("password123!", "newPass456!"));
+        authService.changePassword(1L, new ChangePasswordReq("password123!", "newPass456!"));
 
         // then
         assertThat(user.getPasswordHash()).isEqualTo("new-encoded-password");
@@ -245,7 +245,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("wrongPass!", "encoded-password")).thenReturn(false);
 
         // when & then
-        assertThatThrownBy(() -> authService.changePassword(1L, new ChangePasswordRequest("wrongPass!", "newPass456!")))
+        assertThatThrownBy(() -> authService.changePassword(1L, new ChangePasswordReq("wrongPass!", "newPass456!")))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_CREDENTIALS));
     }
@@ -258,7 +258,7 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password123!", "encoded-password")).thenReturn(true);
 
         // when & then — 특수문자 없는 비밀번호
-        assertThatThrownBy(() -> authService.changePassword(1L, new ChangePasswordRequest("password123!", "onlyletters1")))
+        assertThatThrownBy(() -> authService.changePassword(1L, new ChangePasswordReq("password123!", "onlyletters1")))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_PASSWORD));
     }
@@ -273,7 +273,7 @@ class AuthServiceTest {
         when(tokenHashProvider.hash(any())).thenReturn("token-hash");
 
         // when
-        authService.requestPasswordReset(new ForgotPasswordRequest("manager@test.com"));
+        authService.requestPasswordReset(new ForgotPasswordReq("manager@test.com"));
 
         // then
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
@@ -286,7 +286,7 @@ class AuthServiceTest {
         when(userRepository.findByEmailAndIsDeletedFalse("unknown@test.com")).thenReturn(Optional.empty());
 
         // when — 이메일 미존재 시 예외 없이 정상 반환해야 한다
-        authService.requestPasswordReset(new ForgotPasswordRequest("unknown@test.com"));
+        authService.requestPasswordReset(new ForgotPasswordReq("unknown@test.com"));
 
         // then
         org.mockito.Mockito.verifyNoInteractions(emailService);
@@ -304,7 +304,7 @@ class AuthServiceTest {
         when(passwordEncoder.encode("newPass456!")).thenReturn("new-encoded");
 
         // when
-        authService.resetPassword(new ResetPasswordRequest("raw-token", "newPass456!"));
+        authService.resetPassword(new ResetPasswordReq("raw-token", "newPass456!"));
 
         // then
         assertThat(user.getPasswordHash()).isEqualTo("new-encoded");
@@ -318,7 +318,7 @@ class AuthServiceTest {
         when(passwordResetTokenRepository.findByTokenHashAndIsUsedFalseAndIsDeletedFalse("bad-hash")).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> authService.resetPassword(new ResetPasswordRequest("bad-token", "newPass456!")))
+        assertThatThrownBy(() -> authService.resetPassword(new ResetPasswordReq("bad-token", "newPass456!")))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(AuthErrorCode.INVALID_TOKEN));
     }

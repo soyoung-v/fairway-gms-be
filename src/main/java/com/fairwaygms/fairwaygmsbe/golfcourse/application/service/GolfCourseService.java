@@ -3,16 +3,16 @@ package com.fairwaygms.fairwaygmsbe.golfcourse.application.service;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCartRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateGolfCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCartRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCartStatusRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateGolfCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CartResponse;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CourseResponse;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.GolfCourseResponse;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCartReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateGolfCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartStatusReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateGolfCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CartRes;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CourseRes;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.GolfCourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Cart;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Course;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
@@ -44,50 +44,50 @@ public class GolfCourseService {
     private final CartRepository cartRepository;
 
     // API-201: 골프장 등록 — Admin 전용
-    public GolfCourseResponse createGolfCourse(CreateGolfCourseRequest request, AuthenticatedUser user) {
+    public GolfCourseRes createGolfCourse(CreateGolfCourseReq request, AuthenticatedUser user) {
         if (!user.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         GolfCourse golfCourse = GolfCourse.create(request.name(), request.address(), request.phone());
-        return GolfCourseResponse.from(golfCourseRepository.save(golfCourse));
+        return GolfCourseRes.from(golfCourseRepository.save(golfCourse));
     }
 
     // API-202: 골프장 수정 — Admin 전용
-    public GolfCourseResponse updateGolfCourse(Long golfCourseId, UpdateGolfCourseRequest request, AuthenticatedUser user) {
+    public GolfCourseRes updateGolfCourse(Long golfCourseId, UpdateGolfCourseReq request, AuthenticatedUser user) {
         if (!user.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
         golfCourse.update(request.name(), request.address(), request.phone());
-        return GolfCourseResponse.from(golfCourse);
+        return GolfCourseRes.from(golfCourse);
     }
 
     // API-203: 골프장 목록 조회 — Admin은 전체, Manager는 본인 소속 골프장만 반환
     @Transactional(readOnly = true)
-    public List<GolfCourseResponse> listGolfCourses(AuthenticatedUser user) {
+    public List<GolfCourseRes> listGolfCourses(AuthenticatedUser user) {
         if (user.isAdmin()) {
             return golfCourseRepository.findAllByIsDeletedFalse().stream()
-                    .map(GolfCourseResponse::from)
+                    .map(GolfCourseRes::from)
                     .toList();
         }
         // MANAGER: 본인 소속 골프장 1건만 반환
         GolfCourse golfCourse = findGolfCourseById(user.getGolfCourseId());
-        return List.of(GolfCourseResponse.from(golfCourse));
+        return List.of(GolfCourseRes.from(golfCourse));
     }
 
     // API-204: 골프장 선택 — 존재/상태 검증 후 기본 정보 반환. Manager는 본인 골프장만 선택 가능.
     @Transactional(readOnly = true)
-    public GolfCourseResponse selectGolfCourse(Long golfCourseId, AuthenticatedUser user) {
+    public GolfCourseRes selectGolfCourse(Long golfCourseId, AuthenticatedUser user) {
         // MANAGER는 본인 소속 골프장만 선택 가능
         if (user.isManager() && !golfCourseId.equals(user.getGolfCourseId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
-        return GolfCourseResponse.from(golfCourse);
+        return GolfCourseRes.from(golfCourse);
     }
 
     // API-205: 코스 등록 — Admin, Manager 가능. Manager는 본인 골프장만 대상.
-    public CourseResponse createCourse(Long golfCourseId, CreateCourseRequest request, AuthenticatedUser user) {
+    public CourseRes createCourse(Long golfCourseId, CreateCourseReq request, AuthenticatedUser user) {
         validateGolfCourseAccess(user, golfCourseId);
         validateHoleCount(request.holeCount());
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
@@ -95,31 +95,31 @@ public class GolfCourseService {
             throw new BusinessException(GolfCourseErrorCode.COURSE_NAME_DUPLICATED);
         }
         Course course = Course.create(golfCourse, request.name(), request.holeCount(), request.sortOrder());
-        return CourseResponse.from(courseRepository.save(course));
+        return CourseRes.from(courseRepository.save(course));
     }
 
     // API-206: 코스 수정 — Admin, Manager 가능. Manager는 본인 골프장 코스만 수정 가능.
-    public CourseResponse updateCourse(Long courseId, UpdateCourseRequest request, AuthenticatedUser user) {
+    public CourseRes updateCourse(Long courseId, UpdateCourseReq request, AuthenticatedUser user) {
         Course course = findCourseById(courseId);
         validateGolfCourseAccess(user, course.getGolfCourse().getId());
         validateHoleCount(request.holeCount());
         course.update(request.name(), request.holeCount(), request.sortOrder(), request.isActive());
-        return CourseResponse.from(course);
+        return CourseRes.from(course);
     }
 
     // API-207: 코스 목록 조회 — sortOrder 오름차순 정렬
     @Transactional(readOnly = true)
-    public List<CourseResponse> listCourses(Long golfCourseId, AuthenticatedUser user) {
+    public List<CourseRes> listCourses(Long golfCourseId, AuthenticatedUser user) {
         validateGolfCourseAccess(user, golfCourseId);
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
         return courseRepository.findAllByGolfCourseAndIsDeletedFalse(golfCourse).stream()
                 .sorted(Comparator.comparingInt(Course::getSortOrder))
-                .map(CourseResponse::from)
+                .map(CourseRes::from)
                 .toList();
     }
 
     // API-208: 카트 등록 — Admin, Manager 가능. Manager는 본인 골프장만 대상.
-    public CartResponse createCart(Long golfCourseId, CreateCartRequest request, AuthenticatedUser user) {
+    public CartRes createCart(Long golfCourseId, CreateCartReq request, AuthenticatedUser user) {
         validateGolfCourseAccess(user, golfCourseId);
         CartType cartType = parseCartType(request.cartType());
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
@@ -127,12 +127,12 @@ public class GolfCourseService {
             throw new BusinessException(GolfCourseErrorCode.DUPLICATE_CART_NUMBER);
         }
         Cart cart = Cart.create(golfCourse, request.cartNumber(), cartType);
-        return CartResponse.from(cartRepository.save(cart));
+        return CartRes.from(cartRepository.save(cart));
     }
 
     // API-209: 카트 목록 조회 — status 파라미터로 필터링 가능
     @Transactional(readOnly = true)
-    public List<CartResponse> listCarts(Long golfCourseId, String statusParam, AuthenticatedUser user) {
+    public List<CartRes> listCarts(Long golfCourseId, String statusParam, AuthenticatedUser user) {
         validateGolfCourseAccess(user, golfCourseId);
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
         List<Cart> carts;
@@ -142,11 +142,11 @@ public class GolfCourseService {
         } else {
             carts = cartRepository.findAllByGolfCourseAndIsDeletedFalse(golfCourse);
         }
-        return carts.stream().map(CartResponse::from).toList();
+        return carts.stream().map(CartRes::from).toList();
     }
 
     // API-210: 카트 수정 — 카트 번호 변경 시 중복 확인
-    public CartResponse updateCart(Long cartId, UpdateCartRequest request, AuthenticatedUser user) {
+    public CartRes updateCart(Long cartId, UpdateCartReq request, AuthenticatedUser user) {
         Cart cart = findCartById(cartId);
         validateGolfCourseAccess(user, cart.getGolfCourse().getId());
         CartType cartType = parseCartType(request.cartType());
@@ -157,11 +157,11 @@ public class GolfCourseService {
             }
         }
         cart.update(request.cartNumber(), cartType, request.note());
-        return CartResponse.from(cart);
+        return CartRes.from(cart);
     }
 
     // API-211: 카트 상태 변경 — Manager 전용
-    public CartResponse updateCartStatus(Long cartId, UpdateCartStatusRequest request, AuthenticatedUser user) {
+    public CartRes updateCartStatus(Long cartId, UpdateCartStatusReq request, AuthenticatedUser user) {
         if (!user.isManager()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -169,7 +169,7 @@ public class GolfCourseService {
         validateGolfCourseAccess(user, cart.getGolfCourse().getId());
         CartStatus status = parseCartStatus(request.status());
         cart.changeStatus(status);
-        return CartResponse.from(cart);
+        return CartRes.from(cart);
     }
 
     // API-212: 카트 반납 — 배정 완료 이벤트 수신 시 Assignment 도메인에서 호출한다.

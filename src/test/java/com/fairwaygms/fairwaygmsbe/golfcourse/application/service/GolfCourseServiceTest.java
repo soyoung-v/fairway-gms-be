@@ -4,14 +4,14 @@ import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCartRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateGolfCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCartStatusRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateGolfCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CartResponse;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CourseResponse;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.GolfCourseResponse;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCartReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateGolfCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartStatusReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateGolfCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CartRes;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CourseRes;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.GolfCourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Cart;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Course;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
@@ -57,7 +57,7 @@ class GolfCourseServiceTest {
     @Test
     void createGolfCourse_adminSucceeds() {
         // given
-        CreateGolfCourseRequest request = new CreateGolfCourseRequest("선산CC", "경북 구미시", "054-000-0000");
+        CreateGolfCourseReq request = new CreateGolfCourseReq("선산CC", "경북 구미시", "054-000-0000");
         when(golfCourseRepository.save(any(GolfCourse.class))).thenAnswer(inv -> {
             GolfCourse gc = inv.getArgument(0);
             ReflectionTestUtils.setField(gc, "id", 1L);
@@ -65,7 +65,7 @@ class GolfCourseServiceTest {
         });
 
         // when
-        GolfCourseResponse response = golfCourseService.createGolfCourse(request, admin());
+        GolfCourseRes response = golfCourseService.createGolfCourse(request, admin());
 
         // then
         ArgumentCaptor<GolfCourse> captor = ArgumentCaptor.forClass(GolfCourse.class);
@@ -78,7 +78,7 @@ class GolfCourseServiceTest {
     @Test
     void createGolfCourse_failsWhenNotAdmin() {
         // given
-        CreateGolfCourseRequest request = new CreateGolfCourseRequest("선산CC", null, null);
+        CreateGolfCourseReq request = new CreateGolfCourseReq("선산CC", null, null);
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.createGolfCourse(request, manager(10L)))
@@ -91,10 +91,10 @@ class GolfCourseServiceTest {
         // given
         GolfCourse golfCourse = golfCourse(1L);
         when(golfCourseRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(golfCourse));
-        UpdateGolfCourseRequest request = new UpdateGolfCourseRequest("선산GC", "경북 구미시 수정", "054-111-1111");
+        UpdateGolfCourseReq request = new UpdateGolfCourseReq("선산GC", "경북 구미시 수정", "054-111-1111");
 
         // when
-        GolfCourseResponse response = golfCourseService.updateGolfCourse(1L, request, admin());
+        GolfCourseRes response = golfCourseService.updateGolfCourse(1L, request, admin());
 
         // then
         assertThat(golfCourse.getName()).isEqualTo("선산GC");
@@ -105,7 +105,7 @@ class GolfCourseServiceTest {
     void updateGolfCourse_failsWhenNotFound() {
         // given
         when(golfCourseRepository.findByIdAndIsDeletedFalse(99L)).thenReturn(Optional.empty());
-        UpdateGolfCourseRequest request = new UpdateGolfCourseRequest("선산GC", null, null);
+        UpdateGolfCourseReq request = new UpdateGolfCourseReq("선산GC", null, null);
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.updateGolfCourse(99L, request, admin()))
@@ -120,7 +120,7 @@ class GolfCourseServiceTest {
                 .thenReturn(List.of(golfCourse(1L), golfCourse(2L)));
 
         // when
-        List<GolfCourseResponse> result = golfCourseService.listGolfCourses(admin());
+        List<GolfCourseRes> result = golfCourseService.listGolfCourses(admin());
 
         // then
         assertThat(result).hasSize(2);
@@ -133,7 +133,7 @@ class GolfCourseServiceTest {
         when(golfCourseRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(golfCourse));
 
         // when
-        List<GolfCourseResponse> result = golfCourseService.listGolfCourses(manager(10L));
+        List<GolfCourseRes> result = golfCourseService.listGolfCourses(manager(10L));
 
         // then
         assertThat(result).hasSize(1);
@@ -147,7 +147,7 @@ class GolfCourseServiceTest {
         when(golfCourseRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(golfCourse));
 
         // when
-        GolfCourseResponse response = golfCourseService.selectGolfCourse(10L, manager(10L));
+        GolfCourseRes response = golfCourseService.selectGolfCourse(10L, manager(10L));
 
         // then
         assertThat(response.golfCourseId()).isEqualTo(10L);
@@ -174,10 +174,10 @@ class GolfCourseServiceTest {
             ReflectionTestUtils.setField(c, "id", 1L);
             return c;
         });
-        CreateCourseRequest request = new CreateCourseRequest("동코스", 18, 1);
+        CreateCourseReq request = new CreateCourseReq("동코스", 18, 1);
 
         // when
-        CourseResponse response = golfCourseService.createCourse(10L, request, manager(10L));
+        CourseRes response = golfCourseService.createCourse(10L, request, manager(10L));
 
         // then
         assertThat(response.courseId()).isEqualTo(1L);
@@ -191,7 +191,7 @@ class GolfCourseServiceTest {
         GolfCourse golfCourse = golfCourse(10L);
         when(golfCourseRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(golfCourse));
         when(courseRepository.existsByGolfCourseAndNameAndIsDeletedFalse(golfCourse, "동코스")).thenReturn(true);
-        CreateCourseRequest request = new CreateCourseRequest("동코스", 18, 1);
+        CreateCourseReq request = new CreateCourseReq("동코스", 18, 1);
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.createCourse(10L, request, manager(10L)))
@@ -202,7 +202,7 @@ class GolfCourseServiceTest {
     @Test
     void createCourse_failsOnInvalidHoleCount() {
         // given
-        CreateCourseRequest request = new CreateCourseRequest("동코스", 10, 1);
+        CreateCourseReq request = new CreateCourseReq("동코스", 10, 1);
 
         // when & then — 10홀은 유효하지 않음 (9/18/27만 허용)
         assertThatThrownBy(() -> golfCourseService.createCourse(10L, request, manager(10L)))
@@ -213,7 +213,7 @@ class GolfCourseServiceTest {
     @Test
     void createCourse_managerForbiddenOnOtherGolfCourse() {
         // given
-        CreateCourseRequest request = new CreateCourseRequest("동코스", 18, 1);
+        CreateCourseReq request = new CreateCourseReq("동코스", 18, 1);
 
         // when & then — Manager(소속 10L)가 다른 골프장(20L)에 코스 등록 시도
         assertThatThrownBy(() -> golfCourseService.createCourse(20L, request, manager(10L)))
@@ -234,10 +234,10 @@ class GolfCourseServiceTest {
             ReflectionTestUtils.setField(c, "id", 1L);
             return c;
         });
-        CreateCartRequest request = new CreateCartRequest("001", "ELECTRIC");
+        CreateCartReq request = new CreateCartReq("001", "ELECTRIC");
 
         // when
-        CartResponse response = golfCourseService.createCart(10L, request, manager(10L));
+        CartRes response = golfCourseService.createCart(10L, request, manager(10L));
 
         // then
         assertThat(response.cartId()).isEqualTo(1L);
@@ -252,7 +252,7 @@ class GolfCourseServiceTest {
         GolfCourse golfCourse = golfCourse(10L);
         when(golfCourseRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(golfCourse));
         when(cartRepository.existsByGolfCourseAndCartNumberAndIsDeletedFalse(golfCourse, "001")).thenReturn(true);
-        CreateCartRequest request = new CreateCartRequest("001", "ELECTRIC");
+        CreateCartReq request = new CreateCartReq("001", "ELECTRIC");
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.createCart(10L, request, manager(10L)))
@@ -263,7 +263,7 @@ class GolfCourseServiceTest {
     @Test
     void createCart_failsOnInvalidCartType() {
         // given
-        CreateCartRequest request = new CreateCartRequest("001", "INVALID_TYPE");
+        CreateCartReq request = new CreateCartReq("001", "INVALID_TYPE");
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.createCart(10L, request, manager(10L)))
@@ -274,7 +274,7 @@ class GolfCourseServiceTest {
     @Test
     void updateCartStatus_failsWhenNotManager() {
         // given — Admin은 카트 상태 변경 불가 (역할 체크가 카트 조회보다 먼저 일어남)
-        UpdateCartStatusRequest request = new UpdateCartStatusRequest("MAINTENANCE");
+        UpdateCartStatusReq request = new UpdateCartStatusReq("MAINTENANCE");
 
         // when & then
         assertThatThrownBy(() -> golfCourseService.updateCartStatus(1L, request, admin()))
@@ -287,10 +287,10 @@ class GolfCourseServiceTest {
         // given
         Cart cart = cart(10L);
         when(cartRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(cart));
-        UpdateCartStatusRequest request = new UpdateCartStatusRequest("MAINTENANCE");
+        UpdateCartStatusReq request = new UpdateCartStatusReq("MAINTENANCE");
 
         // when
-        CartResponse response = golfCourseService.updateCartStatus(1L, request, manager(10L));
+        CartRes response = golfCourseService.updateCartStatus(1L, request, manager(10L));
 
         // then
         assertThat(cart.getStatus()).isEqualTo(CartStatus.MAINTENANCE);

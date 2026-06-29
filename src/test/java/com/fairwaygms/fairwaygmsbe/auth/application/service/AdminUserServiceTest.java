@@ -1,6 +1,6 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.service;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AdminUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AdminUserRes;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.enums.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
@@ -42,7 +42,7 @@ class AdminUserServiceTest {
         when(userRepository.findByIdAndIsDeletedFalse(2L)).thenReturn(Optional.of(pendingUser));
 
         // when
-        AdminUserResponse response = adminUserService.approveUser(admin(), 2L);
+        AdminUserRes response = adminUserService.approveUser(admin(), 2L);
 
         // then
         assertThat(response.status()).isEqualTo(UserStatus.ACTIVE);

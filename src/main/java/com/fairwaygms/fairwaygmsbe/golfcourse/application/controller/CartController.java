@@ -2,10 +2,10 @@ package com.fairwaygms.fairwaygmsbe.golfcourse.application.controller;
 
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCartRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCartRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCartStatusRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CartResponse;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCartReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartStatusReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CartRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.service.GolfCourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +33,10 @@ public class CartController {
 
     // API-208: 카트 등록 (Admin, Manager)
     @PostMapping("/golf-courses/{golfCourseId}/carts")
-    public ResponseEntity<ApiResponse<CartResponse>> createCart(
+    public ResponseEntity<ApiResponse<CartRes>> createCart(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long golfCourseId,
-            @Valid @RequestBody CreateCartRequest request
+            @Valid @RequestBody CreateCartReq request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(golfCourseService.createCart(golfCourseId, request, user)));
@@ -44,7 +44,7 @@ public class CartController {
 
     // API-209: 카트 목록 조회 (Admin, Manager) — status 파라미터로 필터링 가능
     @GetMapping("/golf-courses/{golfCourseId}/carts")
-    public ResponseEntity<ApiResponse<List<CartResponse>>> listCarts(
+    public ResponseEntity<ApiResponse<List<CartRes>>> listCarts(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long golfCourseId,
             @RequestParam(required = false) String status
@@ -55,20 +55,20 @@ public class CartController {
 
     // API-210: 카트 수정 (Admin, Manager)
     @PatchMapping("/carts/{cartId}")
-    public ResponseEntity<ApiResponse<CartResponse>> updateCart(
+    public ResponseEntity<ApiResponse<CartRes>> updateCart(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long cartId,
-            @Valid @RequestBody UpdateCartRequest request
+            @Valid @RequestBody UpdateCartReq request
     ) {
         return ResponseEntity.ok(ApiResponse.success(golfCourseService.updateCart(cartId, request, user)));
     }
 
     // API-211: 카트 상태 변경 (Manager)
     @PatchMapping("/carts/{cartId}/status")
-    public ResponseEntity<ApiResponse<CartResponse>> updateCartStatus(
+    public ResponseEntity<ApiResponse<CartRes>> updateCartStatus(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long cartId,
-            @Valid @RequestBody UpdateCartStatusRequest request
+            @Valid @RequestBody UpdateCartStatusReq request
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 golfCourseService.updateCartStatus(cartId, request, user)));

@@ -2,9 +2,9 @@ package com.fairwaygms.fairwaygmsbe.golfcourse.application.controller;
 
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.CreateCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.request.UpdateCourseRequest;
-import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.response.CourseResponse;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCourseReq;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.service.GolfCourseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,10 +31,10 @@ public class CourseController {
 
     // API-205: 코스 등록 (Admin, Manager)
     @PostMapping("/golf-courses/{golfCourseId}/courses")
-    public ResponseEntity<ApiResponse<CourseResponse>> createCourse(
+    public ResponseEntity<ApiResponse<CourseRes>> createCourse(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long golfCourseId,
-            @Valid @RequestBody CreateCourseRequest request
+            @Valid @RequestBody CreateCourseReq request
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(golfCourseService.createCourse(golfCourseId, request, user)));
@@ -42,17 +42,17 @@ public class CourseController {
 
     // API-206: 코스 수정 (Admin, Manager)
     @PatchMapping("/courses/{courseId}")
-    public ResponseEntity<ApiResponse<CourseResponse>> updateCourse(
+    public ResponseEntity<ApiResponse<CourseRes>> updateCourse(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long courseId,
-            @Valid @RequestBody UpdateCourseRequest request
+            @Valid @RequestBody UpdateCourseReq request
     ) {
         return ResponseEntity.ok(ApiResponse.success(golfCourseService.updateCourse(courseId, request, user)));
     }
 
     // API-207: 코스 목록 조회 (Admin, Manager) — sortOrder 오름차순
     @GetMapping("/golf-courses/{golfCourseId}/courses")
-    public ResponseEntity<ApiResponse<List<CourseResponse>>> listCourses(
+    public ResponseEntity<ApiResponse<List<CourseRes>>> listCourses(
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable Long golfCourseId
     ) {

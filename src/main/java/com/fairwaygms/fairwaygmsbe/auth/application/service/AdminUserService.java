@@ -1,6 +1,6 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.service;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AdminUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AdminUserRes;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.enums.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
@@ -23,17 +23,17 @@ public class AdminUserService {
 
     // 승인 대기 사용자는 오래된 가입순으로 반환한다.
     @Transactional(readOnly = true)
-    public List<AdminUserResponse> getPendingUsers(AuthenticatedUser admin) {
+    public List<AdminUserRes> getPendingUsers(AuthenticatedUser admin) {
         validateAdmin(admin);
         return userRepository.findByStatusAndIsDeletedFalseOrderByCreatedAtAsc(UserStatus.PENDING)
                 .stream()
-                .map(AdminUserResponse::from)
+                .map(AdminUserRes::from)
                 .toList();
     }
 
     // PENDING 계정만 ACTIVE로 승인한다.
     @Transactional
-    public AdminUserResponse approveUser(AuthenticatedUser admin, Long userId) {
+    public AdminUserRes approveUser(AuthenticatedUser admin, Long userId) {
         validateAdmin(admin);
         User user = getUser(userId);
         if (user.getStatus() == UserStatus.ACTIVE) {
@@ -43,12 +43,12 @@ public class AdminUserService {
             throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "승인 대기 상태가 아닌 사용자입니다.");
         }
         user.approve(admin.getUserId());
-        return AdminUserResponse.from(user);
+        return AdminUserRes.from(user);
     }
 
     // ACTIVE 계정은 거절할 수 없고, PENDING 계정만 REJECTED로 변경한다.
     @Transactional
-    public AdminUserResponse rejectUser(AuthenticatedUser admin, Long userId) {
+    public AdminUserRes rejectUser(AuthenticatedUser admin, Long userId) {
         validateAdmin(admin);
         User user = getUser(userId);
         if (user.getStatus() == UserStatus.ACTIVE) {
@@ -58,12 +58,12 @@ public class AdminUserService {
             throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "승인 대기 상태가 아닌 사용자입니다.");
         }
         user.reject(admin.getUserId());
-        return AdminUserResponse.from(user);
+        return AdminUserRes.from(user);
     }
 
     // ACTIVE Manager만 퇴사 처리할 수 있다.
     @Transactional
-    public AdminUserResponse withdrawManager(AuthenticatedUser admin, Long userId) {
+    public AdminUserRes withdrawManager(AuthenticatedUser admin, Long userId) {
         validateAdmin(admin);
         User user = getUser(userId);
         if (user.getRole() != UserRole.MANAGER) {
@@ -73,7 +73,7 @@ public class AdminUserService {
             throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "활성 상태의 Manager만 퇴사 처리할 수 있습니다.");
         }
         user.withdraw();
-        return AdminUserResponse.from(user);
+        return AdminUserRes.from(user);
     }
 
     // Method Security를 켜지 않고 Service 내부에서 ADMIN 권한을 검증한다.

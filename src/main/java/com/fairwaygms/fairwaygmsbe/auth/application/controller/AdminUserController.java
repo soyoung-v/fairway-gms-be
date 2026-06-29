@@ -1,6 +1,6 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.controller;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AdminUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AdminUserRes;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AdminUserService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -24,7 +24,7 @@ public class AdminUserController {
 
     // ADMIN 전용 승인 대기 계정 목록
     @GetMapping("/pending")
-    public ResponseEntity<ApiResponse<List<AdminUserResponse>>> pendingUsers(
+    public ResponseEntity<ApiResponse<List<AdminUserRes>>> pendingUsers(
             @AuthenticationPrincipal AuthenticatedUser admin
     ) {
         return ResponseEntity.ok(ApiResponse.success(adminUserService.getPendingUsers(admin)));
@@ -32,7 +32,7 @@ public class AdminUserController {
 
     // ADMIN 전용 사용자 승인
     @PatchMapping("/{userId}/approve")
-    public ResponseEntity<ApiResponse<AdminUserResponse>> approveUser(
+    public ResponseEntity<ApiResponse<AdminUserRes>> approveUser(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @PathVariable Long userId
     ) {
@@ -41,7 +41,7 @@ public class AdminUserController {
 
     // ADMIN 전용 사용자 거절
     @PatchMapping("/{userId}/reject")
-    public ResponseEntity<ApiResponse<AdminUserResponse>> rejectUser(
+    public ResponseEntity<ApiResponse<AdminUserRes>> rejectUser(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @PathVariable Long userId
     ) {
@@ -50,7 +50,7 @@ public class AdminUserController {
 
     // ADMIN 전용 Manager 퇴사 처리
     @PatchMapping("/{userId}/withdraw")
-    public ResponseEntity<ApiResponse<AdminUserResponse>> withdrawManager(
+    public ResponseEntity<ApiResponse<AdminUserRes>> withdrawManager(
             @AuthenticationPrincipal AuthenticatedUser admin,
             @PathVariable Long userId
     ) {

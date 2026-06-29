@@ -1,4 +1,4 @@
-package com.fairwaygms.fairwaygmsbe.auth.application.model.request;
+package com.fairwaygms.fairwaygmsbe.auth.application.model.req;
 
 import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
 import jakarta.validation.ConstraintViolation;
@@ -65,8 +65,8 @@ class SignupRequestValidationTest {
         }
     }
 
-    private Set<ConstraintViolation<SignupRequest>> validatePassword(String password) {
-        SignupRequest request = new SignupRequest(
+    private Set<ConstraintViolation<SignupReq>> validatePassword(String password) {
+        SignupReq request = new SignupReq(
                 "manager@test.com",
                 password,
                 "테스트 매니저",

@@ -1,13 +1,13 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.service;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ChangePasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ForgotPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.LoginRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.ResetPasswordRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.SignupRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AuthUserResponse;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.MeResponse;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.SignupResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ChangePasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ForgotPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.LoginReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.ResetPasswordReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.SignupReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AuthUserRes;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.MeRes;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.SignupRes;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.PasswordResetToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.RefreshToken;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
@@ -53,7 +53,7 @@ public class AuthService {
 
     // 회원가입은 승인 대기 계정만 생성하고 토큰은 발급하지 않는다.
     @Transactional
-    public SignupResponse signup(SignupRequest request) {
+    public SignupRes signup(SignupReq request) {
         String email = normalizeEmail(request.email());
         validateSignupContext(request.role(), request.golfCourseId());
         passwordPolicyValidator.validate(request.password());
@@ -71,12 +71,12 @@ public class AuthService {
                 request.golfCourseId()
         );
         User savedUser = userRepository.save(user);
-        return SignupResponse.from(savedUser);
+        return SignupRes.from(savedUser);
     }
 
     // ACTIVE 계정만 로그인시키고 Refresh Token은 해시로만 저장한다.
     @Transactional
-    public AuthLoginResult login(LoginRequest request) {
+    public AuthLoginResult login(LoginReq request) {
         User user = userRepository.findByEmailAndIsDeletedFalse(normalizeEmail(request.email()))
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.INVALID_CREDENTIALS));
 
@@ -89,7 +89,7 @@ public class AuthService {
         saveRefreshToken(user.getId(), refreshToken);
         user.recordLogin();
 
-        return new AuthLoginResult(AuthUserResponse.from(user), accessToken, refreshToken);
+        return new AuthLoginResult(AuthUserRes.from(user), accessToken, refreshToken);
     }
 
     // 로그아웃은 토큰이 없거나 이미 폐기되어도 클라이언트 관점에서는 성공 처리한다.
@@ -134,7 +134,7 @@ public class AuthService {
         String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId(), user.getRole(), user.getGolfCourseId());
         saveRefreshToken(user.getId(), newRefreshToken);
 
-        return new AuthLoginResult(AuthUserResponse.from(user), newAccessToken, newRefreshToken);
+        return new AuthLoginResult(AuthUserRes.from(user), newAccessToken, newRefreshToken);
     }
 
     // 이메일 사용 가능 여부 반환. true이면 가입 가능한 이메일이다.
@@ -145,7 +145,7 @@ public class AuthService {
 
     // 현재 비밀번호 검증 후 새 비밀번호로 교체한다.
     @Transactional
-    public void changePassword(Long userId, ChangePasswordRequest request) {
+    public void changePassword(Long userId, ChangePasswordReq request) {
         User user = userRepository.findByIdAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_NOT_FOUND));
         validatePassword(user, request.currentPassword());
@@ -155,7 +155,7 @@ public class AuthService {
 
     // 이메일 미존재 여부는 노출하지 않는다 — 항상 성공 응답을 반환한다.
     @Transactional
-    public void requestPasswordReset(ForgotPasswordRequest request) {
+    public void requestPasswordReset(ForgotPasswordReq request) {
         String email = normalizeEmail(request.email());
         userRepository.findByEmailAndIsDeletedFalse(email).ifPresent(user -> {
             // 기존 미사용 토큰을 모두 무효화하고 새 토큰을 발급한다.
@@ -174,7 +174,7 @@ public class AuthService {
 
     // 토큰이 유효하면 비밀번호를 변경하고 토큰을 사용 완료 처리한다.
     @Transactional
-    public void resetPassword(ResetPasswordRequest request) {
+    public void resetPassword(ResetPasswordReq request) {
         String tokenHash = tokenHashProvider.hash(request.token());
         PasswordResetToken resetToken = passwordResetTokenRepository
                 .findByTokenHashAndIsUsedFalseAndIsDeletedFalse(tokenHash)
@@ -194,10 +194,10 @@ public class AuthService {
 
     // SecurityContext의 사용자 ID로 현재 계정을 조회한다.
     @Transactional(readOnly = true)
-    public MeResponse getMe(Long userId) {
+    public MeRes getMe(Long userId) {
         User user = userRepository.findByIdAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_NOT_FOUND));
-        return MeResponse.from(user);
+        return MeRes.from(user);
     }
 
     // Manager/Caddy는 가입 시 소속 골프장이 필요하고 Admin은 null을 허용한다.

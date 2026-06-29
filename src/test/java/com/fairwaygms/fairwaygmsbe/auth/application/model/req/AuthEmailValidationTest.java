@@ -1,4 +1,4 @@
-package com.fairwaygms.fairwaygmsbe.auth.application.model.request;
+package com.fairwaygms.fairwaygmsbe.auth.application.model.req;
 
 import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
 import jakarta.validation.ConstraintViolation;
@@ -32,7 +32,7 @@ class AuthEmailValidationTest {
     @Test
     void signupEmailValidFormatPasses() {
         // when
-        Set<ConstraintViolation<SignupRequest>> violations = validateSignupEmail("manager@test.com");
+        Set<ConstraintViolation<SignupReq>> violations = validateSignupEmail("manager@test.com");
 
         // then
         assertThat(violations).isEmpty();
@@ -41,7 +41,7 @@ class AuthEmailValidationTest {
     @Test
     void signupEmailWithoutAtFails() {
         // when
-        Set<ConstraintViolation<SignupRequest>> violations = validateSignupEmail("manager-test.com");
+        Set<ConstraintViolation<SignupReq>> violations = validateSignupEmail("manager-test.com");
 
         // then
         assertThat(violations)
@@ -52,7 +52,7 @@ class AuthEmailValidationTest {
     @Test
     void signupEmailBlankFails() {
         // when
-        Set<ConstraintViolation<SignupRequest>> violations = validateSignupEmail("");
+        Set<ConstraintViolation<SignupReq>> violations = validateSignupEmail("");
 
         // then
         assertThat(violations)
@@ -63,7 +63,7 @@ class AuthEmailValidationTest {
     @Test
     void loginEmailValidFormatPasses() {
         // when
-        Set<ConstraintViolation<LoginRequest>> violations = validateLoginEmail("manager@test.com");
+        Set<ConstraintViolation<LoginReq>> violations = validateLoginEmail("manager@test.com");
 
         // then
         assertThat(violations).isEmpty();
@@ -72,7 +72,7 @@ class AuthEmailValidationTest {
     @Test
     void loginEmailWithoutAtFails() {
         // when
-        Set<ConstraintViolation<LoginRequest>> violations = validateLoginEmail("manager-test.com");
+        Set<ConstraintViolation<LoginReq>> violations = validateLoginEmail("manager-test.com");
 
         // then
         assertThat(violations)
@@ -80,8 +80,8 @@ class AuthEmailValidationTest {
                 .contains("올바른 이메일 형식이 아닙니다.");
     }
 
-    private Set<ConstraintViolation<SignupRequest>> validateSignupEmail(String email) {
-        SignupRequest request = new SignupRequest(
+    private Set<ConstraintViolation<SignupReq>> validateSignupEmail(String email) {
+        SignupReq request = new SignupReq(
                 email,
                 "password123!",
                 "테스트 매니저",
@@ -92,8 +92,8 @@ class AuthEmailValidationTest {
         return validator.validate(request);
     }
 
-    private Set<ConstraintViolation<LoginRequest>> validateLoginEmail(String email) {
-        LoginRequest request = new LoginRequest(email, "password123!");
+    private Set<ConstraintViolation<LoginReq>> validateLoginEmail(String email) {
+        LoginReq request = new LoginReq(email, "password123!");
         return validator.validate(request);
     }
 }

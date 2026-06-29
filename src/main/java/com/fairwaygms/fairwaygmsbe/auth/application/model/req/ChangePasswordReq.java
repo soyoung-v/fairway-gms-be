@@ -1,10 +1,10 @@
-package com.fairwaygms.fairwaygmsbe.auth.application.model.request;
+package com.fairwaygms.fairwaygmsbe.auth.application.model.req;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-public record ChangePasswordRequest(
+public record ChangePasswordReq(
         @NotBlank(message = "현재 비밀번호는 필수입니다.")
         String currentPassword,
 

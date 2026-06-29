@@ -1,9 +1,9 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.service;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AuthUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AuthUserRes;
 
 public record AuthLoginResult(
-        AuthUserResponse user,
+        AuthUserRes user,
         String accessToken,
         String refreshToken
 ) {

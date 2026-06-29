@@ -1,7 +1,7 @@
 package com.fairwaygms.fairwaygmsbe.auth.application.controller;
 
-import com.fairwaygms.fairwaygmsbe.auth.application.model.request.LoginRequest;
-import com.fairwaygms.fairwaygmsbe.auth.application.model.response.AuthUserResponse;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.req.LoginReq;
+import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AuthUserRes;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AuthLoginResult;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AuthService;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
@@ -49,8 +49,8 @@ class AuthControllerTest {
     @Test
     void loginReturnsTwoHttpOnlyCookiesWithoutTokenBody() {
         // given
-        LoginRequest request = new LoginRequest("manager@test.com", "password123!");
-        AuthUserResponse user = new AuthUserResponse(
+        LoginReq request = new LoginReq("manager@test.com", "password123!");
+        AuthUserRes user = new AuthUserRes(
                 1L,
                 "manager@test.com",
                 "테스트 매니저",
@@ -60,7 +60,7 @@ class AuthControllerTest {
         when(authService.login(request)).thenReturn(new AuthLoginResult(user, "access-token", "refresh-token"));
 
         // when
-        ResponseEntity<ApiResponse<AuthUserResponse>> response = authController.login(request);
+        ResponseEntity<ApiResponse<AuthUserRes>> response = authController.login(request);
 
         // then
         List<String> cookies = response.getHeaders().get(HttpHeaders.SET_COOKIE);
@@ -74,7 +74,7 @@ class AuthControllerTest {
     @Test
     void refreshReturnsRotatedCookies() {
         // given
-        AuthUserResponse user = new AuthUserResponse(
+        AuthUserRes user = new AuthUserRes(
                 1L,
                 "admin@test.com",
                 "관리자",
