@@ -5,6 +5,7 @@ import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.enums.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
+import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieService;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -20,6 +21,7 @@ import java.util.List;
 public class AdminUserService {
 
     private final UserRepository userRepository;
+    private final CaddieService caddieService;
 
     // 승인 대기 사용자는 오래된 가입순으로 반환한다.
     @Transactional(readOnly = true)
@@ -43,6 +45,12 @@ public class AdminUserService {
             throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "승인 대기 상태가 아닌 사용자입니다.");
         }
         user.approve(admin.getUserId());
+
+        // CADDY 계정 승인 시 caddie 레코드 + 기본 근무패턴을 생성한다
+        if (user.getRole() == UserRole.CADDY) {
+            caddieService.createOnApproval(user);
+        }
+
         return AdminUserRes.from(user);
     }
 

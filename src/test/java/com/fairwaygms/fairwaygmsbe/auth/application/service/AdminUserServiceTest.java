@@ -5,6 +5,7 @@ import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.enums.UserStatus;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
+import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieService;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -20,7 +21,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class AdminUserServiceTest {
@@ -28,11 +30,14 @@ class AdminUserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private CaddieService caddieService;
+
     private AdminUserService adminUserService;
 
     @BeforeEach
     void setUp() {
-        adminUserService = new AdminUserService(userRepository);
+        adminUserService = new AdminUserService(userRepository, caddieService);
     }
 
     @Test
@@ -71,6 +76,32 @@ class AdminUserServiceTest {
                         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
 
+    @Test
+    void CADDY_승인_시_캐디_레코드_생성_호출() {
+        // given
+        User pendingCaddy = pendingCaddyUser();
+        when(userRepository.findByIdAndIsDeletedFalse(3L)).thenReturn(Optional.of(pendingCaddy));
+
+        // when
+        adminUserService.approveUser(admin(), 3L);
+
+        // then — CADDY 역할이므로 createOnApproval 호출되어야 함
+        verify(caddieService, times(1)).createOnApproval(pendingCaddy);
+    }
+
+    @Test
+    void MANAGER_승인_시_캐디_레코드_생성_미호출() {
+        // given
+        User pendingManager = pendingUser();
+        when(userRepository.findByIdAndIsDeletedFalse(2L)).thenReturn(Optional.of(pendingManager));
+
+        // when
+        adminUserService.approveUser(admin(), 2L);
+
+        // then — MANAGER 역할이므로 createOnApproval 호출되면 안 됨
+        verify(caddieService, never()).createOnApproval(any());
+    }
+
     private AuthenticatedUser admin() {
         return new AuthenticatedUser(1L, UserRole.ADMIN, null);
     }
@@ -89,6 +120,19 @@ class AdminUserServiceTest {
                 10L
         );
         ReflectionTestUtils.setField(user, "id", 2L);
+        return user;
+    }
+
+    private User pendingCaddyUser() {
+        User user = User.createEmailUser(
+                "caddy@test.com",
+                "encoded-password",
+                "테스트 캐디",
+                "010-5678-1234",
+                UserRole.CADDY,
+                10L
+        );
+        ReflectionTestUtils.setField(user, "id", 3L);
         return user;
     }
 }
