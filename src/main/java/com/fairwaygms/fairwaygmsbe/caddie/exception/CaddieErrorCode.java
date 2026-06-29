@@ -18,7 +18,9 @@ public enum CaddieErrorCode implements ErrorCodeSpec {
     // 수동 조정 시 사유 없이 요청한 경우
     QUEUE_ADJUST_REASON_REQUIRED("QUEUE_ADJUST_REASON_REQUIRED", "순번 수동 조정 시 사유를 입력해야 합니다.", HttpStatus.BAD_REQUEST),
     CADDIE_ALREADY_LINKED("CADDIE_ALREADY_LINKED", "이미 계정과 연동된 캐디입니다.", HttpStatus.CONFLICT),
-    INVALID_CADDIE_STATUS("INVALID_CADDIE_STATUS", "유효하지 않은 캐디 상태입니다.", HttpStatus.BAD_REQUEST);
+    INVALID_CADDIE_STATUS("INVALID_CADDIE_STATUS", "유효하지 않은 캐디 상태입니다.", HttpStatus.BAD_REQUEST),
+    // DUTY 타입 등록 시 우선순위(FIRST/SECOND) 누락
+    DUTY_PRIORITY_REQUIRED("DUTY_PRIORITY_REQUIRED", "당번 등록 시 우선순위(FIRST/SECOND)를 입력해야 합니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
