@@ -64,4 +64,9 @@ public class CaddieQueue extends BaseEntity {
     public void adjustNumber(int newQueueNumber) {
         this.queueNumber = newQueueNumber;
     }
+
+    public void softDelete() {
+        this.isDeleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
 }
