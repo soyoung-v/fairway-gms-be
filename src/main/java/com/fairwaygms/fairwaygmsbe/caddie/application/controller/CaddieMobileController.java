@@ -1,0 +1,39 @@
+package com.fairwaygms.fairwaygmsbe.caddie.application.controller;
+
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MyCaddieRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MyQueueRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieMobileService;
+import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
+import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/caddie/me")
+public class CaddieMobileController {
+
+    private final CaddieMobileService caddieMobileService;
+
+    // FR-325: 내 기본정보 + 근무패턴 조회 (Caddy)
+    @GetMapping
+    public ResponseEntity<ApiResponse<MyCaddieRes>> getMyInfo(
+            @AuthenticationPrincipal AuthenticatedUser auth
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(caddieMobileService.getMyInfo(auth)));
+    }
+
+    // FR-326: 내 대기 순번 조회 (Caddy) — queueDate 생략 시 오늘 기준
+    @GetMapping("/queue")
+    public ResponseEntity<ApiResponse<MyQueueRes>> getMyQueue(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate queueDate
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(caddieMobileService.getMyQueue(auth, queueDate)));
+    }
+}
