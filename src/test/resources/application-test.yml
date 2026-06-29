@@ -49,6 +49,8 @@ spring:
             user-name-attribute: response
 
 fairway:
+  app:
+    frontend-url: http://localhost:3000
   jwt:
     secret: test-secret-key-for-unit-tests-must-be-at-least-32-chars
     issuer: fairway-gms
