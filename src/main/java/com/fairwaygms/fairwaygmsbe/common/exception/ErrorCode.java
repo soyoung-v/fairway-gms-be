@@ -24,7 +24,11 @@ public enum ErrorCode implements ErrorCodeSpec {
     // ADMIN이 골프장 범위 API 호출 시 X-Selected-Golf-Course-Id 헤더가 없는 경우
     GOLF_COURSE_REQUIRED("GOLF_COURSE_REQUIRED", "골프장 선택이 필요합니다.", HttpStatus.BAD_REQUEST),
     GOLF_COURSE_FORBIDDEN("GOLF_COURSE_FORBIDDEN", "해당 골프장에 접근 권한이 없습니다.", HttpStatus.FORBIDDEN),
-    GOLF_COURSE_NOT_FOUND("GOLF_COURSE_NOT_FOUND", "골프장을 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+    GOLF_COURSE_NOT_FOUND("GOLF_COURSE_NOT_FOUND", "골프장을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+
+    // ── 카트 ──────────────────────────────────────────────────────────────────
+
+    CART_NOT_FOUND("CART_NOT_FOUND", "카트를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

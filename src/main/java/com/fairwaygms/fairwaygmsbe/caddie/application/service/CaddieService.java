@@ -5,9 +5,11 @@ import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.ChangeCaddieStatusReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateCaddieReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateWorkPatternReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.AvailableCaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieWithdrawRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.WorkPatternRes;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieWorkPattern;
@@ -144,6 +146,19 @@ public class CaddieService {
                 .filter(c -> isAvailable(c.getId(), targetId, date))
                 .map(c -> AvailableCaddieRes.of(c, queueMap.get(c.getId())))
                 .toList();
+    }
+
+    // FR-310/311: 근무 패턴 수정 (주중/주말 가능 여부, 부 제한, 첫대기 수동 여부)
+    public WorkPatternRes updateWorkPattern(Long caddieId, UpdateWorkPatternReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Caddie caddie = findCaddie(caddieId);
+        validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
+
+        CaddieWorkPattern pattern = workPatternRepository.findByCaddie_IdAndIsDeletedFalse(caddieId)
+                .orElseThrow(() -> new BusinessException(CaddieErrorCode.WORK_PATTERN_NOT_FOUND));
+
+        pattern.update(req.canWeekday(), req.canWeekend(), req.periodLimit(), req.isFirstWaitManual());
+        return WorkPatternRes.from(pattern);
     }
 
     // 해당 날짜에 배정 제외 유형(휴무/결근/배정제외)이 하나도 없으면 가용 상태

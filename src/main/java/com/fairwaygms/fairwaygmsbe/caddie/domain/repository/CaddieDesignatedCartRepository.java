@@ -3,6 +3,7 @@ package com.fairwaygms.fairwaygmsbe.caddie.domain.repository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieDesignatedCart;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface CaddieDesignatedCartRepository extends JpaRepository<CaddieDesignatedCart, Long> {
@@ -11,4 +12,7 @@ public interface CaddieDesignatedCartRepository extends JpaRepository<CaddieDesi
     Optional<CaddieDesignatedCart> findByCaddie_IdAndIsActiveTrueAndIsDeletedFalse(Long caddieId);
 
     boolean existsByCaddie_IdAndCart_IdAndIsDeletedFalse(Long caddieId, Long cartId);
+
+    // FR-309: 골프장 전체 활성 지정카트 목록
+    List<CaddieDesignatedCart> findByGolfCourse_IdAndIsActiveTrueAndIsDeletedFalse(Long golfCourseId);
 }
