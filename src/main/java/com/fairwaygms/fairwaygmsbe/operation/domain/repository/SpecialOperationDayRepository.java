@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface SpecialOperationDayRepository extends JpaRepository<SpecialOperationDay, Long> {
 
+    Optional<SpecialOperationDay> findByIdAndIsDeletedFalse(Long id);
+
     Optional<SpecialOperationDay> findByGolfCourse_IdAndOperationDateAndIsDeletedFalse(Long golfCourseId, LocalDate operationDate);
 
     List<SpecialOperationDay> findByGolfCourse_IdAndOperationDateBetweenAndIsDeletedFalse(Long golfCourseId, LocalDate from, LocalDate to);

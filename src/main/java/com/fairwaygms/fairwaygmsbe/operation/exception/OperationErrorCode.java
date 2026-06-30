@@ -19,7 +19,8 @@ public enum OperationErrorCode implements ErrorCodeSpec {
     INVALID_YEAR_MONTH("INVALID_YEAR_MONTH", "유효하지 않은 연월 형식입니다. (예: 2025-06)", HttpStatus.BAD_REQUEST),
     // 티타임 일괄 재생성 시 기존 예약팀이 있는 경우
     TEE_TIME_HAS_TEAMS("TEE_TIME_HAS_TEAMS", "예약팀이 존재하는 티타임은 삭제할 수 없습니다.", HttpStatus.CONFLICT),
-    CADDIE_NOT_FOUND("CADDIE_NOT_FOUND", "캐디를 찾을 수 없습니다.", HttpStatus.NOT_FOUND);
+    CADDIE_NOT_FOUND("CADDIE_NOT_FOUND", "캐디를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    INVALID_FILE_FORMAT("INVALID_FILE_FORMAT", "유효하지 않은 파일 형식입니다.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

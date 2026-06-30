@@ -18,4 +18,6 @@ public interface CaddieRepository extends JpaRepository<Caddie, Long> {
     boolean existsByGolfCourse_IdAndCaddieNumberAndIsDeletedFalse(Long golfCourseId, String caddieNumber);
 
     Optional<Caddie> findByUser_IdAndIsDeletedFalse(Long userId);
+
+    Optional<Caddie> findByGolfCourse_IdAndNameAndIsDeletedFalse(Long golfCourseId, String name);
 }
