@@ -14,12 +14,10 @@ import java.time.LocalDateTime;
 // 동시성 제어는 비관적 락(SELECT FOR UPDATE)으로 보강 — Repository에서 @Lock 사용
 @Getter
 @Entity
+// 소프트 삭제 구조와 DB 유니크 제약은 동시에 사용할 수 없다 (삭제된 행이 제약을 점유).
+// 단건 활성 보장은 서비스 레이어(initializeQueues soft-delete 후 재삽입, adjustQueue 중복 확인)에서 수행한다.
 @Table(
         name = "caddie_queue",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_caddie_queue_caddie_date", columnNames = {"caddie_id", "queue_date"}),
-                @UniqueConstraint(name = "uk_caddie_queue_golf_course_date_number", columnNames = {"golf_course_id", "queue_date", "queue_number"})
-        },
         indexes = {
                 @Index(name = "idx_caddie_queue_golf_course_date", columnList = "golf_course_id, queue_date")
         }
