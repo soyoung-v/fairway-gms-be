@@ -120,7 +120,9 @@ public class JwtTokenProvider {
     // 공통 토큰 생성
     private String createToken(Long userId, UserRole role, Long golfCourseId, String tokenType, long validitySeconds) {
         Instant now = Instant.now();
+        // jti(JWT ID)로 고속 연속 발급 시 동일 payload 중복을 방지한다
         JwtBuilder builder = Jwts.builder()
+                .id(java.util.UUID.randomUUID().toString())
                 .issuer(jwtProperties.getIssuer())
                 .subject(String.valueOf(userId))
                 .claim(CLAIM_ROLE, role.name())
