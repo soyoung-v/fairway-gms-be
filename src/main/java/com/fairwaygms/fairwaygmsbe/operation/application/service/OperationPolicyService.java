@@ -10,6 +10,9 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.req.CreateSpecial
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.UpdateRainPolicyReq;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.RainPolicyRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.SpecialDayRes;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.List;
 import com.fairwaygms.fairwaygmsbe.operation.domain.entity.RainCancellationPolicy;
 import com.fairwaygms.fairwaygmsbe.operation.domain.entity.SpecialOperationDay;
 import com.fairwaygms.fairwaygmsbe.operation.domain.repository.RainCancellationPolicyRepository;
@@ -42,6 +45,22 @@ public class OperationPolicyService {
         specialDayRepository.save(specialDay);
 
         return SpecialDayRes.from(specialDay);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SpecialDayRes> listSpecialDays(String yearMonth, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
+
+        YearMonth ym = YearMonth.parse(yearMonth);
+        LocalDate from = ym.atDay(1);
+        LocalDate to = ym.atEndOfMonth();
+
+        return specialDayRepository
+                .findByGolfCourse_IdAndOperationDateBetweenAndIsDeletedFalse(golfCourseId, from, to)
+                .stream()
+                .map(SpecialDayRes::from)
+                .toList();
     }
 
     public void deleteSpecialDay(Long specialDayId, AuthenticatedUser auth) {

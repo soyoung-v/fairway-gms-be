@@ -13,12 +13,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation")
 public class OperationPolicyController {
 
     private final OperationPolicyService operationPolicyService;
+
+    @GetMapping("/special-days")
+    public ResponseEntity<ApiResponse<List<SpecialDayRes>>> listSpecialDays(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam String yearMonth
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(operationPolicyService.listSpecialDays(yearMonth, auth)));
+    }
 
     @PostMapping("/special-days")
     public ResponseEntity<ApiResponse<SpecialDayRes>> createSpecialDay(
