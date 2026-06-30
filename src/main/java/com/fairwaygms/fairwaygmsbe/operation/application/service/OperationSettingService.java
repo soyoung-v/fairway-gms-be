@@ -62,14 +62,14 @@ public class OperationSettingService {
     }
 
     @Transactional(readOnly = true)
-    public OperationSettingRes getSetting(Long settingId, AuthenticatedUser auth) {
+    public OperationSettingRes getSetting(String yearMonth, AuthenticatedUser auth) {
         validateManager(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
 
-        OperationSetting setting = findSetting(settingId);
-        validateGolfCourseMatch(setting.getGolfCourse().getId(), golfCourseId);
+        OperationSetting setting = settingRepository.findByGolfCourse_IdAndYearMonthAndIsDeletedFalse(golfCourseId, yearMonth)
+                .orElseThrow(() -> new BusinessException(OperationErrorCode.SETTING_NOT_FOUND));
 
-        List<OperationPeriod> periods = periodRepository.findByOperationSetting_IdAndIsDeletedFalse(settingId);
+        List<OperationPeriod> periods = periodRepository.findByOperationSetting_IdAndIsDeletedFalse(setting.getId());
         return OperationSettingRes.of(setting, periods);
     }
 

@@ -27,12 +27,12 @@ public class OperationSettingController {
         return ResponseEntity.ok(ApiResponse.success(operationSettingService.createSetting(request, auth)));
     }
 
-    @GetMapping("/{settingId}")
+    @GetMapping
     public ResponseEntity<ApiResponse<OperationSettingRes>> getSetting(
             @AuthenticationPrincipal AuthenticatedUser auth,
-            @PathVariable Long settingId
+            @RequestParam String yearMonth
     ) {
-        return ResponseEntity.ok(ApiResponse.success(operationSettingService.getSetting(settingId, auth)));
+        return ResponseEntity.ok(ApiResponse.success(operationSettingService.getSetting(yearMonth, auth)));
     }
 
     @PatchMapping("/{settingId}")

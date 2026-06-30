@@ -9,6 +9,8 @@ import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.repository.GolfCourseRepository;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.ChangeTeeTimeReq;
+import java.time.LocalDate;
+import java.util.List;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.CreateReservationTeamReq;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.SetDesignatedCaddieReq;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.UpdateReservationTeamReq;
@@ -57,18 +59,16 @@ public class ReservationTeamService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReservationTeamRes> listTeams(Long teeTimeId, AuthenticatedUser auth) {
+    public List<ReservationTeamRes> listTeams(LocalDate playDate, Long courseId, Integer periodNumber, AuthenticatedUser auth) {
         validateManager(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
 
-        TeeTime teeTime = teeTimeRepository.findByIdAndIsDeletedFalse(teeTimeId)
-                .orElseThrow(() -> new BusinessException(OperationErrorCode.TEE_TIME_NOT_FOUND));
-        if (!teeTime.getGolfCourse().getId().equals(golfCourseId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
-
-        return reservationTeamRepository.findByTeeTime_IdAndIsDeletedFalse(teeTimeId)
-                .stream().map(ReservationTeamRes::from).toList();
+        return reservationTeamRepository.findByGolfCourseIdAndPlayDate(golfCourseId, playDate)
+                .stream()
+                .filter(t -> courseId == null || t.getTeeTime().getCourse().getId().equals(courseId))
+                .filter(t -> periodNumber == null || t.getTeeTime().getOperationPeriod().getPeriodNumber().equals(periodNumber))
+                .map(ReservationTeamRes::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)

@@ -12,10 +12,12 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.res.ReservationTe
 import com.fairwaygms.fairwaygmsbe.operation.application.service.ReservationTeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -36,9 +38,11 @@ public class ReservationTeamController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationTeamRes>>> listTeams(
             @AuthenticationPrincipal AuthenticatedUser auth,
-            @RequestParam Long teeTimeId
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate playDate,
+            @RequestParam(required = false) Long courseId,
+            @RequestParam(required = false) Integer periodNumber
     ) {
-        return ResponseEntity.ok(ApiResponse.success(reservationTeamService.listTeams(teeTimeId, auth)));
+        return ResponseEntity.ok(ApiResponse.success(reservationTeamService.listTeams(playDate, courseId, periodNumber, auth)));
     }
 
     @GetMapping("/{teamId}")
