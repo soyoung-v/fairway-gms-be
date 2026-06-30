@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Table(
         name = "operation_setting",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_operation_setting_golf_course_year_month", columnNames = {"golf_course_id", "year_month"})
+                @UniqueConstraint(name = "uk_operation_setting_golf_course_year_month", columnNames = {"golf_course_id", "`year_month`"})
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -28,8 +28,8 @@ public class OperationSetting extends BaseEntity {
     @JoinColumn(name = "golf_course_id", nullable = false)
     private GolfCourse golfCourse;
 
-    // 예: 2025-06
-    @Column(name = "year_month", nullable = false, length = 7)
+    // 예: 2025-06 — year_month은 MySQL 9.x 예약어이므로 백틱으로 이스케이프한다
+    @Column(name = "`year_month`", nullable = false, length = 7)
     private String yearMonth;
 
     @Column(name = "is_deleted", nullable = false)

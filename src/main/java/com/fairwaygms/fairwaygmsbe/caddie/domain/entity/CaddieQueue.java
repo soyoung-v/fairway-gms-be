@@ -19,7 +19,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "caddie_queue",
         indexes = {
-                @Index(name = "idx_caddie_queue_golf_course_date", columnList = "golf_course_id, queue_date")
+                @Index(name = "idx_caddie_queue_golf_course_date", columnList = "golf_course_id, queue_date"),
+                @Index(name = "idx_caddie_queue_caddie", columnList = "caddie_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
