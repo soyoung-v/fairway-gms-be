@@ -95,7 +95,7 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
 
         // then
         assertThat(result.user().email()).isEqualTo("login@example.com");
-        List<RefreshToken> tokens = refreshTokenRepository.findAll();
+        List<RefreshToken> tokens = refreshTokenRepository.findByUserIdAndIsDeletedFalse(user.getId());
         assertThat(tokens).hasSize(1);
         assertThat(tokens.get(0).getIsRevoked()).isFalse();
     }
@@ -116,7 +116,7 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
     @Test
     void 로그아웃_후_RefreshToken_revoke_처리() {
         // given
-        activeUser("logout@example.com", "Password1!");
+        User user = activeUser("logout@example.com", "Password1!");
         AuthLoginResult loginResult = authService.login(new LoginReq("logout@example.com", "Password1!"));
         String refreshToken = loginResult.refreshToken();
 
@@ -124,7 +124,7 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
         authService.logout(refreshToken);
 
         // then
-        List<RefreshToken> tokens = refreshTokenRepository.findAll();
+        List<RefreshToken> tokens = refreshTokenRepository.findByUserIdAndIsDeletedFalse(user.getId());
         assertThat(tokens).hasSize(1);
         assertThat(tokens.get(0).getIsRevoked()).isTrue();
     }
@@ -134,15 +134,15 @@ class AuthFlowIntegrationTest extends AbstractIntegrationTest {
     @Test
     void 토큰_재발급_후_기존_RT_revoke_및_새_RT_저장() {
         // given
-        activeUser("refresh@example.com", "Password1!");
+        User user = activeUser("refresh@example.com", "Password1!");
         AuthLoginResult loginResult = authService.login(new LoginReq("refresh@example.com", "Password1!"));
         String oldRefreshToken = loginResult.refreshToken();
 
         // when
         AuthLoginResult refreshResult = authService.refresh(oldRefreshToken);
 
-        // then — 이전 토큰 revoke, 새 토큰 저장 (총 2건)
-        List<RefreshToken> tokens = refreshTokenRepository.findAll();
+        // then — 해당 유저의 이전 토큰 revoke, 새 토큰 저장 (총 2건)
+        List<RefreshToken> tokens = refreshTokenRepository.findByUserIdAndIsDeletedFalse(user.getId());
         assertThat(tokens).hasSize(2);
         long revokedCount = tokens.stream().filter(t -> Boolean.TRUE.equals(t.getIsRevoked())).count();
         long activeCount = tokens.stream().filter(t -> !Boolean.TRUE.equals(t.getIsRevoked())).count();
