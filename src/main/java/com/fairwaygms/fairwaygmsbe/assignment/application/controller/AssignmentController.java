@@ -1,11 +1,10 @@
 package com.fairwaygms.fairwaygmsbe.assignment.application.controller;
 
-import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.CancelAssignmentReq;
-import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.ManualPreAssignReq;
-import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.ReassignReq;
-import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.UnlockAssignmentReq;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHistoryRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -92,5 +91,45 @@ public class AssignmentController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 assignmentService.getHistory(golfCourseId, assignmentDate, caddieId, auth)));
+    }
+
+    // API-501: 자동배정 실행 (FR-501~505)
+    @PostMapping("/auto")
+    public ResponseEntity<ApiResponse<AutoAssignRes>> autoAssign(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody AutoAssignReq request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(assignmentService.autoAssign(request, auth)));
+    }
+
+    // API-506: 배정 교환 (FR-511) — 이미 배정된 두 캐디를 맞바꿈
+    @PostMapping("/swap")
+    public ResponseEntity<ApiResponse<Void>> swapAssignments(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody SwapAssignmentReq request
+    ) {
+        assignmentService.swapAssignments(request, auth);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // API-510: 미배정 팀 조회 (FR-517)
+    @GetMapping("/unassigned")
+    public ResponseEntity<ApiResponse<List<UnassignedTeamRes>>> getUnassignedTeams(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam(required = false) Long golfCourseId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate assignmentDate
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                assignmentService.getUnassignedTeams(golfCourseId, assignmentDate, auth)));
+    }
+
+    // API-515: 단건 배정 완료 처리 (FR-522)
+    @PatchMapping("/{assignmentId}/complete")
+    public ResponseEntity<ApiResponse<AssignmentRes>> completeAssignment(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @PathVariable Long assignmentId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                assignmentService.completeAssignment(assignmentId, auth)));
     }
 }
