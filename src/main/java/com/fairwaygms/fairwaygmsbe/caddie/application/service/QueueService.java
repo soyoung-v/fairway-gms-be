@@ -8,13 +8,18 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.InitializeQueueR
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.InitializeQueueRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.QueueRes;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieGroup;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueueHistory;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.QueueRotationState;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieGroupAssignmentType;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieStatus;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.QueueChangeType;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieGroupRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueHistoryRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.QueueRotationStateRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.exception.CaddieErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
@@ -27,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -40,6 +46,8 @@ public class QueueService {
     private final CaddieRepository caddieRepository;
     private final CaddieQueueRepository queueRepository;
     private final CaddieQueueHistoryRepository queueHistoryRepository;
+    private final CaddieGroupRepository caddieGroupRepository;
+    private final QueueRotationStateRepository rotationStateRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
 
@@ -55,7 +63,9 @@ public class QueueService {
                 .toList();
     }
 
-    // FR-313: 대기 순번 초기화 — ACTIVE 캐디 전원을 캐디번호 오름차순으로 1번부터 순번 부여
+    // FR-313: 대기 순번 초기화 — 그룹별 순번 이월(CARRY_OVER) 반영
+    // 배정 순서: PRIORITY_FIRST 그룹(등록 순) → HOUSE 그룹 → SESSION_FIXED는 제외(수동 배정 전용)
+    // 각 그룹은 QueueRotationState.nextStartCaddie 기준으로 정렬 시작점 결정
     // 기존 순번이 있으면 소프트 삭제 후 재생성, 이력(RESET)을 남긴다
     public InitializeQueueRes initializeQueues(InitializeQueueReq req, AuthenticatedUser auth) {
         validateManager(auth);
@@ -65,43 +75,103 @@ public class QueueService {
 
         // 비관적 락으로 기존 순번 행을 점유하여 동시 초기화 방지
         List<CaddieQueue> existing = queueRepository.findForUpdateByGolfCourseAndDate(golfCourseId, req.queueDate());
-
-        // 기존 순번 맵 (caddieId → beforeNumber)
         Map<Long, Integer> beforeMap = existing.stream()
                 .collect(Collectors.toMap(q -> q.getCaddie().getId(), CaddieQueue::getQueueNumber));
-
-        // 기존 순번 소프트 삭제
         existing.forEach(CaddieQueue::softDelete);
 
-        // ACTIVE 캐디 전원을 캐디번호 오름차순으로 신규 순번 부여
-        // sort()를 위해 가변 리스트로 복사
-        List<Caddie> activeCaddies = new java.util.ArrayList<>(
-                caddieRepository.findByGolfCourse_IdAndStatusAndIsDeletedFalse(golfCourseId, CaddieStatus.ACTIVE));
-        activeCaddies.sort((a, b) -> {
-            String na = a.getCaddieNumber() == null ? "" : a.getCaddieNumber();
-            String nb = b.getCaddieNumber() == null ? "" : b.getCaddieNumber();
-            return na.compareTo(nb);
-        });
+        // 그룹 rotation state 맵 (groupId → nextStartCaddie)
+        Map<Long, QueueRotationState> rotationMap = rotationStateRepository.findByGolfCourse_Id(golfCourseId)
+                .stream()
+                .collect(Collectors.toMap(s -> s.getCaddieGroup().getId(), s -> s));
 
-        IntStream.range(0, activeCaddies.size()).forEach(i -> {
-            Caddie caddie = activeCaddies.get(i);
+        // 전체 ACTIVE 캐디를 그룹별로 분류 (null 그룹은 HOUSE로 취급)
+        List<Caddie> allActive = caddieRepository.findByGolfCourse_IdAndStatusAndIsDeletedFalse(
+                golfCourseId, CaddieStatus.ACTIVE);
+        Map<Long, List<Caddie>> byGroup = allActive.stream()
+                .filter(c -> c.getCaddieGroup() != null)
+                .collect(Collectors.groupingBy(c -> c.getCaddieGroup().getId()));
+
+        // 그룹 없는 캐디(null) — 기본 HOUSE 그룹이 없는 레거시 데이터 포함
+        List<Caddie> ungrouped = allActive.stream()
+                .filter(c -> c.getCaddieGroup() == null)
+                .sorted((a, b) -> compareCaddieNumber(a, b))
+                .collect(Collectors.toList());
+
+        // 그룹 목록: PRIORITY_FIRST 우선, SESSION_FIXED는 자동배정 큐에서 제외
+        List<CaddieGroup> groups = caddieGroupRepository
+                .findByGolfCourse_IdAndIsDeletedFalseOrderByAssignmentTypeAscNameAsc(golfCourseId);
+
+        List<Caddie> orderedCaddies = new ArrayList<>();
+
+        // PRIORITY_FIRST 그룹 먼저 추가
+        groups.stream()
+                .filter(g -> g.getAssignmentType() == CaddieGroupAssignmentType.PRIORITY_FIRST)
+                .forEach(g -> orderedCaddies.addAll(
+                        rotationSortedCaddies(byGroup.getOrDefault(g.getId(), List.of()), rotationMap.get(g.getId()))
+                ));
+
+        // HOUSE 그룹 추가
+        groups.stream()
+                .filter(g -> g.getAssignmentType() == CaddieGroupAssignmentType.HOUSE)
+                .forEach(g -> orderedCaddies.addAll(
+                        rotationSortedCaddies(byGroup.getOrDefault(g.getId(), List.of()), rotationMap.get(g.getId()))
+                ));
+
+        // 그룹 미지정 캐디 — 가장 마지막에 추가 (레거시 데이터)
+        orderedCaddies.addAll(ungrouped);
+
+        // SESSION_FIXED 그룹 캐디는 큐 번호 없이 자동배정 풀에서 제외
+        // 단, 이력은 남겨야 하므로 별도로 SESSION_FIXED 캐디만 queueNumber=0 없이 처리하지 않음
+        // → SESSION_FIXED 캐디도 큐 행을 생성하되, autoAssign에서 그룹 타입으로 필터링
+        groups.stream()
+                .filter(g -> g.getAssignmentType() == CaddieGroupAssignmentType.SESSION_FIXED)
+                .forEach(g -> orderedCaddies.addAll(
+                        rotationSortedCaddies(byGroup.getOrDefault(g.getId(), List.of()), rotationMap.get(g.getId()))
+                ));
+
+        // 순번 부여 및 큐 생성
+        IntStream.range(0, orderedCaddies.size()).forEach(i -> {
+            Caddie caddie = orderedCaddies.get(i);
             int newNumber = i + 1;
-            CaddieQueue newQueue = CaddieQueue.create(caddie, golfCourse, req.queueDate(), newNumber);
-            queueRepository.save(newQueue);
-
-            // 초기화 이력 저장
-            CaddieQueueHistory history = CaddieQueueHistory.record(
+            queueRepository.save(CaddieQueue.create(caddie, golfCourse, req.queueDate(), newNumber));
+            queueHistoryRepository.save(CaddieQueueHistory.record(
                     caddie, golfCourse, req.queueDate(),
                     QueueChangeType.RESET,
-                    beforeMap.get(caddie.getId()), // 이전 순번 (null이면 새로 등록)
-                    newNumber,
-                    null,
-                    changedBy
-            );
-            queueHistoryRepository.save(history);
+                    beforeMap.get(caddie.getId()),
+                    newNumber, null, changedBy));
         });
 
-        return new InitializeQueueRes(activeCaddies.size(), req.queueDate());
+        return new InitializeQueueRes(orderedCaddies.size(), req.queueDate());
+    }
+
+    // 그룹 캐디 목록을 rotation state 기준 시작점부터 순환 정렬
+    private List<Caddie> rotationSortedCaddies(List<Caddie> caddies, QueueRotationState rotationState) {
+        if (caddies.isEmpty()) return List.of();
+
+        List<Caddie> sorted = new ArrayList<>(caddies);
+        sorted.sort((a, b) -> compareCaddieNumber(a, b));
+
+        if (rotationState == null || rotationState.getNextStartCaddie() == null) {
+            return sorted;
+        }
+
+        Long startId = rotationState.getNextStartCaddie().getId();
+        int startIdx = IntStream.range(0, sorted.size())
+                .filter(i -> sorted.get(i).getId().equals(startId))
+                .findFirst()
+                .orElse(0);
+
+        // startIdx부터 순환: [startIdx..end] + [0..startIdx-1]
+        List<Caddie> rotated = new ArrayList<>();
+        rotated.addAll(sorted.subList(startIdx, sorted.size()));
+        rotated.addAll(sorted.subList(0, startIdx));
+        return rotated;
+    }
+
+    private int compareCaddieNumber(Caddie a, Caddie b) {
+        String na = a.getCaddieNumber() == null ? "" : a.getCaddieNumber();
+        String nb = b.getCaddieNumber() == null ? "" : b.getCaddieNumber();
+        return na.compareTo(nb);
     }
 
     // FR-314: 순번 수동 조정 — 사유 필수, 비관적 락으로 중복 순번 방지

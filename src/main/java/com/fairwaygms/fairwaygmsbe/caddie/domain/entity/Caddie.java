@@ -55,6 +55,11 @@ public class Caddie extends BaseEntity {
     @Column(nullable = false, length = 30)
     private CaddieStatus status = CaddieStatus.ACTIVE;
 
+    // null이면 골프장 기본 HOUSE 그룹으로 처리 — 그룹 관리 이전 캐디 데이터 호환
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "caddie_group_id")
+    private CaddieGroup caddieGroup;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
 
@@ -77,6 +82,10 @@ public class Caddie extends BaseEntity {
         this.caddieNumber = caddieNumber;
         this.phone = phone;
         this.hireDate = hireDate;
+    }
+
+    public void assignGroup(CaddieGroup caddieGroup) {
+        this.caddieGroup = caddieGroup;
     }
 
     public void changeStatus(CaddieStatus status) {
