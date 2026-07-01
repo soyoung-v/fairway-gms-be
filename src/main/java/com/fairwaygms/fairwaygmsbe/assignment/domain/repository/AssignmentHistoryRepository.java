@@ -13,4 +13,16 @@ public interface AssignmentHistoryRepository extends JpaRepository<AssignmentHis
     // 골프장+날짜 기준 이력 조회 — 운영 이력 리포트에서 사용
     List<AssignmentHistory> findByGolfCourse_IdAndAssignment_AssignmentDateOrderByCreatedAtAsc(
             Long golfCourseId, java.time.LocalDate assignmentDate);
+
+    // 골프장+날짜+캐디 기준 이력 조회 — 특정 캐디 필터 시 사용
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT h FROM AssignmentHistory h " +
+        "WHERE h.golfCourse.id = :golfCourseId " +
+        "AND h.assignment.assignmentDate = :assignmentDate " +
+        "AND (h.beforeCaddie.id = :caddieId OR h.afterCaddie.id = :caddieId) " +
+        "ORDER BY h.createdAt ASC")
+    List<AssignmentHistory> findByGolfCourseAndDateAndCaddie(
+            @org.springframework.data.repository.query.Param("golfCourseId") Long golfCourseId,
+            @org.springframework.data.repository.query.Param("assignmentDate") java.time.LocalDate assignmentDate,
+            @org.springframework.data.repository.query.Param("caddieId") Long caddieId);
 }

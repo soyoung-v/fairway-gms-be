@@ -1,6 +1,7 @@
 package com.fairwaygms.fairwaygmsbe.assignment.application.service;
 
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHistoryRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
@@ -70,6 +71,19 @@ public class AssignmentService {
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
 
+    // 배정 변경 이력 조회 — 날짜 + 캐디(선택) 필터 (FR-524)
+    @Transactional(readOnly = true)
+    public List<AssignmentHistoryRes> getHistory(Long golfCourseId, LocalDate assignmentDate,
+                                                  Long caddieId, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        List<com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory> histories =
+                caddieId != null
+                        ? historyRepository.findByGolfCourseAndDateAndCaddie(targetId, assignmentDate, caddieId)
+                        : historyRepository.findByGolfCourse_IdAndAssignment_AssignmentDateOrderByCreatedAtAsc(targetId, assignmentDate);
+        return histories.stream().map(AssignmentHistoryRes::from).toList();
+    }
+
     // 배정 목록 조회 — 골프장+날짜 기준 (티타임 순 정렬)
     @Transactional(readOnly = true)
     public List<AssignmentRes> getAssignments(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
@@ -110,7 +124,7 @@ public class AssignmentService {
 
         historyRepository.save(AssignmentHistory.record(
                 assignment, golfCourse, AssignmentChangeType.MANUAL,
-                null, caddie, null, manager));
+                null, caddie, req.reason(), manager));
 
         return AssignmentRes.from(assignment);
     }

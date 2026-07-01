@@ -8,5 +8,6 @@ public record ManualPreAssignReq(
         // 지정 캐디 여부 — true이면 자동배정 풀에서 제외되고 Manager만 해제 가능
         boolean isLocked,
         // 하프백 여부 — 1인 2팀 담당 (FR-506)
-        boolean isHalfBack
+        boolean isHalfBack,
+        String reason
 ) {}
