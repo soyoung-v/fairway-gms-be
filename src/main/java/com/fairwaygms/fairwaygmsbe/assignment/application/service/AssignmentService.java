@@ -1,0 +1,517 @@
+package com.fairwaygms.fairwaygmsbe.assignment.application.service;
+
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentChangeType;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentStatus;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentHistoryRepository;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository;
+import com.fairwaygms.fairwaygmsbe.assignment.exception.AssignmentErrorCode;
+import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
+import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
+import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieGroup;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueueHistory;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.QueueRotationState;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieGroupAssignmentType;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.DailyStatusType;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.QueueChangeType;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieDailyStatusRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieGroupRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueHistoryRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.QueueRotationStateRepository;
+import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
+import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
+import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
+import com.fairwaygms.fairwaygmsbe.golfcourse.domain.repository.GolfCourseRepository;
+import com.fairwaygms.fairwaygmsbe.operation.domain.entity.ReservationTeam;
+import com.fairwaygms.fairwaygmsbe.operation.domain.entity.TeeTime;
+import com.fairwaygms.fairwaygmsbe.operation.domain.repository.ReservationTeamRepository;
+import com.fairwaygms.fairwaygmsbe.operation.domain.repository.TeeTimeRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class AssignmentService {
+
+    private static final int MAX_DAILY_ASSIGNMENTS = 2;
+    // 배정 제외 상태 — 이 상태의 캐디는 자동배정 풀에서 제외 (큐 순번은 보존)
+    private static final Set<DailyStatusType> EXCLUDED_STATUSES = Set.of(
+            DailyStatusType.DAY_OFF, DailyStatusType.ABSENCE, DailyStatusType.ASSIGN_EXCLUDED
+    );
+
+    private final AssignmentRepository assignmentRepository;
+    private final AssignmentHistoryRepository historyRepository;
+    private final ReservationTeamRepository reservationTeamRepository;
+    private final CaddieRepository caddieRepository;
+    private final CaddieQueueRepository queueRepository;
+    private final CaddieQueueHistoryRepository queueHistoryRepository;
+    private final CaddieGroupRepository caddieGroupRepository;
+    private final QueueRotationStateRepository rotationStateRepository;
+    private final CaddieDailyStatusRepository caddieDailyStatusRepository;
+    private final TeeTimeRepository teeTimeRepository;
+    private final GolfCourseRepository golfCourseRepository;
+    private final UserRepository userRepository;
+
+    // 배정 목록 조회 — 골프장+날짜 기준 (티타임 순 정렬)
+    @Transactional(readOnly = true)
+    public List<AssignmentRes> getAssignments(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        return assignmentRepository.findByGolfCourseAndDateWithDetails(targetId, date)
+                .stream()
+                .map(AssignmentRes::from)
+                .toList();
+    }
+
+    // 수동 사전 배정 — 특정 예약팀에 특정 캐디를 직접 배정
+    // isLocked=true이면 자동배정 풀에서 제외되고 Manager 권한으로만 해제 가능 (FR-512)
+    public AssignmentRes manualPreAssign(ManualPreAssignReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        ReservationTeam team = reservationTeamRepository.findByIdAndIsDeletedFalse(req.reservationTeamId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(team.getGolfCourse().getId(), auth);
+
+        if (assignmentRepository.existsByReservationTeam_IdAndIsDeletedFalse(req.reservationTeamId())) {
+            throw new BusinessException(AssignmentErrorCode.ASSIGNMENT_ALREADY_EXISTS);
+        }
+
+        Caddie caddie = caddieRepository.findByIdAndIsDeletedFalse(req.caddieId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
+
+        LocalDate assignmentDate = team.getTeeTime().getPlayDate();
+        validateDailyLimit(caddie.getId(), assignmentDate, req.isHalfBack());
+
+        Assignment assignment = Assignment.create(golfCourse, team, caddie, assignmentDate,
+                req.isLocked(), req.isHalfBack());
+        assignmentRepository.save(assignment);
+
+        historyRepository.save(AssignmentHistory.record(
+                assignment, golfCourse, AssignmentChangeType.MANUAL,
+                null, caddie, null, manager));
+
+        return AssignmentRes.from(assignment);
+    }
+
+    // SESSION_FIXED 그룹 일괄 수동 배정 — 지정 티타임부터 그룹 캐디를 순서대로 배정
+    // 부반(주중2부반 등)이 특정 부의 첫 팀부터 일괄 배정될 때 사용
+    public List<AssignmentRes> bulkSessionAssign(BulkSessionAssignReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        TeeTime startTeeTime = teeTimeRepository.findByIdAndIsDeletedFalse(req.startTeeTimeId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(startTeeTime.getGolfCourse().getId(), auth);
+
+        // 같은 부+날짜의 모든 예약팀 (startTime 오름차순), 시작 티타임 이후만 대상
+        Long periodId = startTeeTime.getOperationPeriod().getId();
+        List<ReservationTeam> allTeams = reservationTeamRepository.findByPeriodIdAndPlayDate(periodId, req.assignmentDate());
+
+        // 기존 활성 배정이 없는 팀만 필터, 시작 티타임 이후 팀만 포함
+        Set<Long> alreadyAssigned = getAlreadyAssignedTeamIds(golfCourseId, req.assignmentDate());
+        List<ReservationTeam> targetTeams = allTeams.stream()
+                .filter(t -> !alreadyAssigned.contains(t.getId()))
+                .filter(t -> !t.getTeeTime().getStartTime().isBefore(startTeeTime.getStartTime()))
+                .collect(Collectors.toList());
+
+        if (targetTeams.isEmpty()) return List.of();
+
+        // 그룹 캐디를 큐 순번 기준으로 정렬 (큐가 없으면 caddieNumber 순)
+        List<Caddie> groupCaddies = buildGroupCaddiePool(req.caddieGroupId(), req.assignmentDate(), golfCourseId);
+        if (groupCaddies.isEmpty()) return List.of();
+
+        // 배정 제외 상태 캐디 집합
+        Set<Long> excludedIds = getExcludedCaddieIds(golfCourseId, req.assignmentDate());
+
+        // 배정 카운트 맵 (당일 이미 배정된 건 수)
+        Map<Long, Integer> dayCount = buildCaddieDayCountMap(golfCourseId, req.assignmentDate());
+
+        List<AssignmentRes> results = new ArrayList<>();
+        int caddiePointer = 0;
+
+        for (ReservationTeam team : targetTeams) {
+            // 배정 가능한 다음 캐디 탐색
+            Caddie caddie = null;
+            for (int i = 0; i < groupCaddies.size(); i++) {
+                int idx = (caddiePointer + i) % groupCaddies.size();
+                Caddie candidate = groupCaddies.get(idx);
+                if (!excludedIds.contains(candidate.getId())
+                        && dayCount.getOrDefault(candidate.getId(), 0) < 1) {
+                    caddie = candidate;
+                    caddiePointer = (idx + 1) % groupCaddies.size();
+                    break;
+                }
+            }
+            if (caddie == null) break; // 그룹 캐디 소진 — 남은 팀은 이후 자동배정으로 처리
+
+            Assignment assignment = Assignment.create(golfCourse, team, caddie, req.assignmentDate(), false, false);
+            assignmentRepository.save(assignment);
+            historyRepository.save(AssignmentHistory.record(
+                    assignment, golfCourse, AssignmentChangeType.MANUAL, null, caddie, null, manager));
+            dayCount.merge(caddie.getId(), 1, Integer::sum);
+            results.add(AssignmentRes.from(assignment));
+        }
+
+        return results;
+    }
+
+    // 부(部) 단위 자동배정 — queueNumber 순, 그룹 우선순위 적용, 투근무 자동 처리
+    // ADR-005 Decision 3: 부별 단위로 실행, 이전 부의 rotation 이어서 사용
+    public AutoAssignRes autoAssign(AutoAssignReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        // 같은 날짜 배정 행 비관적 락 — 동시 자동배정 방지
+        List<Assignment> existingAssignments = assignmentRepository.findForUpdateByGolfCourseAndDate(
+                golfCourseId, req.assignmentDate());
+
+        Set<Long> alreadyAssignedTeamIds = existingAssignments.stream()
+                .map(a -> a.getReservationTeam().getId())
+                .collect(Collectors.toSet());
+
+        Map<Long, Integer> caddieDayCount = existingAssignments.stream()
+                .collect(Collectors.groupingBy(
+                        a -> a.getCaddie().getId(),
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+
+        // 큐 비관적 락 — 순번 경합 방지
+        List<CaddieQueue> lockedQueue = queueRepository.findForUpdateByGolfCourseAndDate(
+                golfCourseId, req.assignmentDate());
+        if (lockedQueue.isEmpty()) {
+            throw new BusinessException(AssignmentErrorCode.CADDIE_QUEUE_EMPTY);
+        }
+
+        // 배정 제외 캐디
+        Set<Long> excludedIds = getExcludedCaddieIds(golfCourseId, req.assignmentDate());
+
+        // 배정 대상 캐디 풀 구성 — SESSION_FIXED 제외, 요청 그룹 필터
+        Set<Long> requestedGroupIds = (req.groupIds() != null && !req.groupIds().isEmpty())
+                ? new HashSet<>(req.groupIds()) : null;
+
+        List<CaddieQueue> pool = lockedQueue.stream()
+                .filter(q -> !excludedIds.contains(q.getCaddie().getId()))
+                .filter(q -> {
+                    CaddieGroup group = q.getCaddie().getCaddieGroup();
+                    if (group != null && group.getAssignmentType() == CaddieGroupAssignmentType.SESSION_FIXED) {
+                        return false; // SESSION_FIXED는 autoAssign 풀 제외
+                    }
+                    if (requestedGroupIds != null) {
+                        Long groupId = group != null ? group.getId() : null;
+                        return requestedGroupIds.contains(groupId);
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+
+        if (pool.isEmpty()) {
+            throw new BusinessException(AssignmentErrorCode.CADDIE_QUEUE_EMPTY);
+        }
+
+        // 배정 대상 예약팀 — 해당 부의 미배정 팀
+        List<ReservationTeam> targetTeams = reservationTeamRepository
+                .findByPeriodIdAndPlayDate(req.periodId(), req.assignmentDate())
+                .stream()
+                .filter(t -> !alreadyAssignedTeamIds.contains(t.getId()))
+                .collect(Collectors.toList());
+
+        if (targetTeams.isEmpty()) {
+            return new AutoAssignRes(req.assignmentDate(), req.periodId(), 0, 0);
+        }
+
+        // 그룹별 마지막 배정 캐디 추적 — rotation state 업데이트에 사용
+        Map<Long, Caddie> lastAssignedByGroup = new HashMap<>();
+
+        int pointer = 0;
+        int poolSize = pool.size();
+        int assignedCount = 0;
+        int skippedCount = 0;
+
+        for (ReservationTeam team : targetTeams) {
+            // 다음 배정 가능한 캐디 탐색 (최대 2*pool 순회 = 투근무 허용)
+            Caddie assigned = null;
+            for (int tries = 0; tries < poolSize * MAX_DAILY_ASSIGNMENTS; tries++) {
+                int idx = pointer % poolSize;
+                Caddie candidate = pool.get(idx).getCaddie();
+                int count = caddieDayCount.getOrDefault(candidate.getId(), 0);
+                pointer++;
+                if (count < MAX_DAILY_ASSIGNMENTS) {
+                    assigned = candidate;
+                    break;
+                }
+            }
+
+            if (assigned == null) {
+                skippedCount++;
+                continue;
+            }
+
+            int currentCount = caddieDayCount.getOrDefault(assigned.getId(), 0);
+            boolean isHalfBack = currentCount == 1; // 두 번째 배정 = 투근무
+
+            Assignment assignment = Assignment.create(golfCourse, team, assigned, req.assignmentDate(), false, isHalfBack);
+            assignmentRepository.save(assignment);
+            historyRepository.save(AssignmentHistory.record(
+                    assignment, golfCourse, AssignmentChangeType.AUTO, null, assigned, null, manager));
+
+            caddieDayCount.merge(assigned.getId(), 1, Integer::sum);
+            assignedCount++;
+
+            // 그룹별 마지막 배정 캐디 갱신 (SWAP과 무관한 원래 캐디 ID 기준)
+            Long groupId = assigned.getCaddieGroup() != null ? assigned.getCaddieGroup().getId() : null;
+            if (groupId != null) {
+                lastAssignedByGroup.put(groupId, assigned);
+            }
+        }
+
+        // 그룹별 QueueRotationState 업데이트 — 다음 날 또는 다음 부 시작 캐디 기록
+        updateRotationStates(golfCourse, lastAssignedByGroup);
+
+        return new AutoAssignRes(req.assignmentDate(), req.periodId(), assignedCount, skippedCount);
+    }
+
+    // 재배정 — 기존 배정 캐디를 새 캐디로 교체 (잠금 자동 해제)
+    public AssignmentRes reassign(Long assignmentId, ReassignReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        User manager = findUser(auth.getUserId());
+
+        Assignment assignment = findAssignment(assignmentId);
+        validateGolfCourseAccess(assignment.getGolfCourse().getId(), auth);
+        validateNotCompleted(assignment);
+
+        Caddie beforeCaddie = assignment.getCaddie();
+        Caddie newCaddie = caddieRepository.findByIdAndIsDeletedFalse(req.newCaddieId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(newCaddie.getGolfCourse().getId(), auth);
+
+        // 재배정 시 새 캐디의 당일 배정 가능 여부 확인
+        validateDailyLimit(newCaddie.getId(), assignment.getAssignmentDate(), assignment.getIsHalfBack());
+
+        assignment.reassign(newCaddie);
+        historyRepository.save(AssignmentHistory.record(
+                assignment, assignment.getGolfCourse(), AssignmentChangeType.REASSIGN,
+                beforeCaddie, newCaddie, req.reason(), manager));
+
+        return AssignmentRes.from(assignment);
+    }
+
+    // 배정 취소 — 소프트 삭제로 처리, 같은 팀 재배정 가능
+    public void cancelAssignment(Long assignmentId, String reason, AuthenticatedUser auth) {
+        validateManager(auth);
+        User manager = findUser(auth.getUserId());
+
+        Assignment assignment = findAssignment(assignmentId);
+        validateGolfCourseAccess(assignment.getGolfCourse().getId(), auth);
+        validateNotCompleted(assignment);
+
+        Caddie caddie = assignment.getCaddie();
+        assignment.cancel();
+        historyRepository.save(AssignmentHistory.record(
+                assignment, assignment.getGolfCourse(), AssignmentChangeType.CANCEL,
+                caddie, null, reason, manager));
+    }
+
+    // 당일 큐 순번 교환 (SWAP) — 두 캐디의 queueNumber만 교환
+    // rotation cursor에는 영향 없음 (ADR-005 Decision 6)
+    public void swapQueue(SwapQueueReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        // 같은 날짜 큐 전체 락 — 순번 교환 중 다른 트랜잭션의 수정 방지
+        queueRepository.findForUpdateByGolfCourseAndDate(golfCourseId, req.queueDate());
+
+        CaddieQueue queueA = queueRepository.findByCaddie_IdAndQueueDateAndIsDeletedFalse(
+                req.caddieAId(), req.queueDate())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        CaddieQueue queueB = queueRepository.findByCaddie_IdAndQueueDateAndIsDeletedFalse(
+                req.caddieBId(), req.queueDate())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        validateGolfCourseAccess(queueA.getGolfCourse().getId(), auth);
+
+        int numberA = queueA.getQueueNumber();
+        int numberB = queueB.getQueueNumber();
+
+        queueA.adjustNumber(numberB);
+        queueB.adjustNumber(numberA);
+
+        queueHistoryRepository.save(CaddieQueueHistory.record(
+                queueA.getCaddie(), golfCourse, req.queueDate(),
+                QueueChangeType.SWAP, numberA, numberB, null, manager));
+        queueHistoryRepository.save(CaddieQueueHistory.record(
+                queueB.getCaddie(), golfCourse, req.queueDate(),
+                QueueChangeType.SWAP, numberB, numberA, null, manager));
+    }
+
+    // 지정 캐디 잠금 강제 해제 (FR-512) — 사유 필수
+    public AssignmentRes unlock(Long assignmentId, UnlockAssignmentReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        User manager = findUser(auth.getUserId());
+
+        Assignment assignment = findAssignment(assignmentId);
+        validateGolfCourseAccess(assignment.getGolfCourse().getId(), auth);
+
+        if (!assignment.getIsLocked()) {
+            throw new BusinessException(AssignmentErrorCode.INVALID_ASSIGNMENT_STATUS);
+        }
+
+        Caddie caddie = assignment.getCaddie();
+        assignment.unlock();
+        historyRepository.save(AssignmentHistory.record(
+                assignment, assignment.getGolfCourse(), AssignmentChangeType.UNLOCK,
+                caddie, caddie, req.reason(), manager));
+
+        return AssignmentRes.from(assignment);
+    }
+
+    // 그룹 캐디를 큐 순번 기준으로 정렬하여 반환
+    private List<Caddie> buildGroupCaddiePool(Long caddieGroupId, LocalDate date, Long golfCourseId) {
+        List<CaddieQueue> groupQueue = queueRepository
+                .findByGolfCourse_IdAndQueueDateAndIsDeletedFalseOrderByQueueNumberAsc(golfCourseId, date)
+                .stream()
+                .filter(q -> {
+                    CaddieGroup g = q.getCaddie().getCaddieGroup();
+                    return g != null && g.getId().equals(caddieGroupId);
+                })
+                .collect(Collectors.toList());
+
+        if (!groupQueue.isEmpty()) {
+            return groupQueue.stream().map(CaddieQueue::getCaddie).collect(Collectors.toList());
+        }
+
+        // 큐가 없으면 caddieNumber 순 fallback
+        return caddieRepository.findByGolfCourse_IdAndStatusAndIsDeletedFalse(
+                        golfCourseId, com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieStatus.ACTIVE)
+                .stream()
+                .filter(c -> c.getCaddieGroup() != null && c.getCaddieGroup().getId().equals(caddieGroupId))
+                .sorted(Comparator.comparing(c -> c.getCaddieNumber() != null ? c.getCaddieNumber() : ""))
+                .collect(Collectors.toList());
+    }
+
+    private Set<Long> getAlreadyAssignedTeamIds(Long golfCourseId, LocalDate date) {
+        return assignmentRepository.findByGolfCourseAndDateWithDetails(golfCourseId, date)
+                .stream()
+                .map(a -> a.getReservationTeam().getId())
+                .collect(Collectors.toSet());
+    }
+
+    private Map<Long, Integer> buildCaddieDayCountMap(Long golfCourseId, LocalDate date) {
+        return assignmentRepository.findByGolfCourseAndDateWithDetails(golfCourseId, date)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        a -> a.getCaddie().getId(),
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+    }
+
+    private Set<Long> getExcludedCaddieIds(Long golfCourseId, LocalDate date) {
+        return caddieDailyStatusRepository.findByGolfCourse_IdAndStatusDateAndIsDeletedFalse(golfCourseId, date)
+                .stream()
+                .filter(s -> EXCLUDED_STATUSES.contains(s.getType()))
+                .map(s -> s.getCaddie().getId())
+                .collect(Collectors.toSet());
+    }
+
+    private void updateRotationStates(GolfCourse golfCourse, Map<Long, Caddie> lastAssignedByGroup) {
+        for (Map.Entry<Long, Caddie> entry : lastAssignedByGroup.entrySet()) {
+            Long groupId = entry.getKey();
+            Caddie lastCaddie = entry.getValue();
+
+            // 그룹 내 캐디를 caddieNumber 순으로 정렬
+            List<Caddie> groupCaddies = caddieRepository
+                    .findByGolfCourse_IdAndStatusAndIsDeletedFalse(
+                            golfCourse.getId(), com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieStatus.ACTIVE)
+                    .stream()
+                    .filter(c -> c.getCaddieGroup() != null && c.getCaddieGroup().getId().equals(groupId))
+                    .sorted(Comparator.comparing(c -> c.getCaddieNumber() != null ? c.getCaddieNumber() : ""))
+                    .collect(Collectors.toList());
+
+            if (groupCaddies.isEmpty()) continue;
+
+            int lastIdx = IntStream.range(0, groupCaddies.size())
+                    .filter(i -> groupCaddies.get(i).getId().equals(lastCaddie.getId()))
+                    .findFirst().orElse(-1);
+            if (lastIdx < 0) continue;
+
+            // 마지막 배정 캐디 다음 캐디가 내일 또는 다음 부의 시작 캐디
+            Caddie nextStart = groupCaddies.get((lastIdx + 1) % groupCaddies.size());
+
+            QueueRotationState state = rotationStateRepository
+                    .findByGolfCourse_IdAndCaddieGroup_Id(golfCourse.getId(), groupId)
+                    .orElseGet(() -> {
+                        CaddieGroup group = caddieGroupRepository.findById(groupId).orElseThrow();
+                        return rotationStateRepository.save(QueueRotationState.create(golfCourse, group));
+                    });
+            state.updateNextStart(nextStart);
+        }
+    }
+
+    private void validateDailyLimit(Long caddieId, LocalDate date, boolean isHalfBack) {
+        int currentCount = assignmentRepository.countByCaddie_IdAndAssignmentDateAndIsDeletedFalse(caddieId, date);
+        int maxAllowed = isHalfBack ? MAX_DAILY_ASSIGNMENTS : 1;
+        if (currentCount >= maxAllowed) {
+            throw new BusinessException(AssignmentErrorCode.CADDIE_ASSIGNMENT_LIMIT_EXCEEDED);
+        }
+    }
+
+    private void validateNotCompleted(Assignment assignment) {
+        if (assignment.getStatus() == AssignmentStatus.COMPLETED) {
+            throw new BusinessException(AssignmentErrorCode.INVALID_ASSIGNMENT_STATUS);
+        }
+    }
+
+    private Assignment findAssignment(Long assignmentId) {
+        return assignmentRepository.findById(assignmentId)
+                .filter(a -> !a.getIsDeleted())
+                .orElseThrow(() -> new BusinessException(AssignmentErrorCode.ASSIGNMENT_NOT_FOUND));
+    }
+
+    private GolfCourse findGolfCourse(Long golfCourseId) {
+        return golfCourseRepository.findByIdAndIsDeletedFalse(golfCourseId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.GOLF_COURSE_NOT_FOUND));
+    }
+
+    private User findUser(Long userId) {
+        return userRepository.findByIdAndIsDeletedFalse(userId)
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_NOT_FOUND));
+    }
+
+    private void validateManager(AuthenticatedUser auth) {
+        if (auth.getRole() != UserRole.MANAGER) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void validateGolfCourseAccess(Long resourceGolfCourseId, AuthenticatedUser auth) {
+        if (auth.isAdmin()) return;
+        if (!resourceGolfCourseId.equals(auth.getGolfCourseId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+}
