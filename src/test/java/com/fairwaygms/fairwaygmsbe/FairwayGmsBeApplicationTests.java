@@ -1,6 +1,9 @@
 package com.fairwaygms.fairwaygmsbe;
 
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentService;
+import com.fairwaygms.fairwaygmsbe.notification.application.service.FcmTokenService;
+import com.fairwaygms.fairwaygmsbe.notification.application.service.NotificationService;
+import com.fairwaygms.fairwaygmsbe.notification.application.service.NotificationSettingService;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.CartAssignmentService;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.DailyScheduleService;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AdminBootstrapService;
@@ -85,6 +88,15 @@ class FairwayGmsBeApplicationTests {
 
     @MockitoBean
     private TeeTimeService teeTimeService;
+
+    @MockitoBean
+    private NotificationService notificationService;
+
+    @MockitoBean
+    private NotificationSettingService notificationSettingService;
+
+    @MockitoBean
+    private FcmTokenService fcmTokenService;
 
     // JPA 비활성화 테스트 프로필에서 @EnableJpaAuditing과 충돌 방지
     @MockitoBean
