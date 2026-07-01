@@ -22,5 +22,12 @@ public interface ReservationTeamRepository extends JpaRepository<ReservationTeam
     List<ReservationTeam> findByGolfCourseIdAndPlayDate(@Param("golfCourseId") Long golfCourseId,
                                                         @Param("playDate") LocalDate playDate);
 
+    // 부(部)+날짜 기준 예약팀 — 자동배정 대상 팀 조회에 사용
+    @Query("SELECT rt FROM ReservationTeam rt JOIN rt.teeTime tt " +
+           "WHERE tt.operationPeriod.id = :periodId AND tt.playDate = :playDate " +
+           "AND rt.isDeleted = false ORDER BY tt.startTime ASC")
+    List<ReservationTeam> findByPeriodIdAndPlayDate(@Param("periodId") Long periodId,
+                                                    @Param("playDate") LocalDate playDate);
+
     long countByGolfCourse_IdAndStatusAndIsDeletedFalse(Long golfCourseId, ReservationTeamStatus status);
 }
