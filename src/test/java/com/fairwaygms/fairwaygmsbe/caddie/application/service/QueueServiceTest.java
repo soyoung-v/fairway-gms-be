@@ -7,9 +7,11 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.InitializeQueueR
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieStatus;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieGroupRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueHistoryRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieQueueRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.QueueRotationStateRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.exception.CaddieErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -38,6 +40,8 @@ class QueueServiceTest {
     @Mock private CaddieRepository caddieRepository;
     @Mock private CaddieQueueRepository queueRepository;
     @Mock private CaddieQueueHistoryRepository queueHistoryRepository;
+    @Mock private CaddieGroupRepository caddieGroupRepository;
+    @Mock private QueueRotationStateRepository rotationStateRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
     @Mock private UserRepository userRepository;
 
@@ -49,6 +53,7 @@ class QueueServiceTest {
     void setUp() {
         queueService = new QueueService(
                 caddieRepository, queueRepository, queueHistoryRepository,
+                caddieGroupRepository, rotationStateRepository,
                 golfCourseRepository, userRepository
         );
     }
