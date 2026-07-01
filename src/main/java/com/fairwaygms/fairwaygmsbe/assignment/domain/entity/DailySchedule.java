@@ -76,4 +76,9 @@ public class DailySchedule extends BaseEntity {
         this.confirmedBy = null;
         this.confirmedAt = null;
     }
+
+    // 배정표 완료 — 정산 이벤트 발행 트리거
+    public void complete() {
+        this.status = DailyScheduleStatus.COMPLETED;
+    }
 }
