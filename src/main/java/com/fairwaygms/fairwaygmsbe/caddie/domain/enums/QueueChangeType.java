@@ -2,7 +2,8 @@ package com.fairwaygms.fairwaygmsbe.caddie.domain.enums;
 
 public enum QueueChangeType {
     RESET("초기화"),
-    MANUAL_ADJUST("수동조정");
+    MANUAL_ADJUST("수동조정"),
+    SWAP("교환");
 
     private final String label;
 
