@@ -4,6 +4,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHistoryRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentChangeType;
@@ -402,6 +403,63 @@ public class AssignmentService {
                 assignment, assignment.getGolfCourse(), AssignmentChangeType.UNLOCK,
                 caddie, caddie, req.reason(), manager));
 
+        return AssignmentRes.from(assignment);
+    }
+
+    // 배정 교환 — 두 배정의 캐디를 맞바꿈 (API-506, post-assignment swap)
+    public void swapAssignments(SwapAssignmentReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        User manager = findUser(auth.getUserId());
+
+        Assignment a1 = findAssignment(req.assignmentId1());
+        Assignment a2 = findAssignment(req.assignmentId2());
+        validateGolfCourseAccess(a1.getGolfCourse().getId(), auth);
+        validateGolfCourseAccess(a2.getGolfCourse().getId(), auth);
+        validateNotCompleted(a1);
+        validateNotCompleted(a2);
+
+        Caddie caddie1 = a1.getCaddie();
+        Caddie caddie2 = a2.getCaddie();
+
+        a1.reassign(caddie2);
+        a2.reassign(caddie1);
+
+        historyRepository.save(AssignmentHistory.record(
+                a1, a1.getGolfCourse(), AssignmentChangeType.SWAP, caddie1, caddie2, req.reason(), manager));
+        historyRepository.save(AssignmentHistory.record(
+                a2, a2.getGolfCourse(), AssignmentChangeType.SWAP, caddie2, caddie1, req.reason(), manager));
+    }
+
+    // 미배정 예약팀 조회 — 당일 배정이 없는 RESERVED 상태 팀 (FR-517)
+    @Transactional(readOnly = true)
+    public List<UnassignedTeamRes> getUnassignedTeams(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+
+        Set<Long> assignedTeamIds = assignmentRepository.findByGolfCourseAndDateWithDetails(targetId, date)
+                .stream()
+                .map(a -> a.getReservationTeam().getId())
+                .collect(Collectors.toSet());
+
+        return reservationTeamRepository.findByGolfCourseIdAndPlayDate(targetId, date)
+                .stream()
+                .filter(t -> !assignedTeamIds.contains(t.getId()))
+                .filter(t -> t.getStatus() == com.fairwaygms.fairwaygmsbe.operation.domain.enums.ReservationTeamStatus.RESERVED)
+                .map(UnassignedTeamRes::from)
+                .toList();
+    }
+
+    // 단건 배정 완료 처리 (FR-522)
+    public AssignmentRes completeAssignment(Long assignmentId, AuthenticatedUser auth) {
+        validateManager(auth);
+        Assignment assignment = findAssignment(assignmentId);
+        validateGolfCourseAccess(assignment.getGolfCourse().getId(), auth);
+
+        if (assignment.getStatus() != AssignmentStatus.CONFIRMED) {
+            throw new BusinessException(AssignmentErrorCode.INVALID_ASSIGNMENT_STATUS);
+        }
+
+        assignment.complete();
         return AssignmentRes.from(assignment);
     }
 
