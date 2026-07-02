@@ -1,12 +1,10 @@
 package com.fairwaygms.fairwaygmsbe.settlement.domain.entity;
 
+import com.fairwaygms.fairwaygmsbe.common.entity.BaseEntity;
 import com.fairwaygms.fairwaygmsbe.settlement.domain.enums.CompletionType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,7 +13,6 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Entity
-@EntityListeners(AuditingEntityListener.class)
 @Table(name = "assignment_record",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_assignment_record_assignment", columnNames = "assignment_id")
@@ -24,7 +21,7 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_assignment_record_golf_year_month",
                         columnList = "golf_course_id, settlement_year_month")
         })
-public class AssignmentRecord {
+public class AssignmentRecord extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,14 +54,6 @@ public class AssignmentRecord {
 
     @Column(name = "is_confirmed", nullable = false)
     private Boolean isConfirmed = false;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;

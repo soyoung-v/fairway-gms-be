@@ -1,24 +1,21 @@
 package com.fairwaygms.fairwaygmsbe.settlement.domain.entity;
 
+import com.fairwaygms.fairwaygmsbe.common.entity.BaseEntity;
 import com.fairwaygms.fairwaygmsbe.settlement.domain.enums.SettlementChangeType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 @Entity
-@EntityListeners(AuditingEntityListener.class)
 @Table(name = "settlement_change_history",
         indexes = {
                 @Index(name = "idx_settlement_change_history_type", columnList = "change_type")
         })
-public class SettlementChangeHistory {
+public class SettlementChangeHistory extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,10 +42,6 @@ public class SettlementChangeHistory {
 
     @Column(name = "changed_by")
     private Long changedBy;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     public static SettlementChangeHistory create(Long monthlySettlementCaddieId, Long golfCourseId,
                                                   SettlementChangeType changeType,
