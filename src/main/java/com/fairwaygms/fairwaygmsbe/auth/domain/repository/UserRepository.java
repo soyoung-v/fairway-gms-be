@@ -16,4 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmailAndIsDeletedFalse(String email);
     List<User> findByRoleAndStatusAndIsDeletedFalse(UserRole role, UserStatus status);
     List<User> findByStatusAndIsDeletedFalseOrderByCreatedAtAsc(UserStatus status);
+    List<User> findByIsDeletedFalseOrderByCreatedAtAsc();
+    List<User> findByRoleAndStatusAndGolfCourseIdAndIsDeletedFalseOrderByCreatedAtAsc(UserRole role, UserStatus status, Long golfCourseId);
 }

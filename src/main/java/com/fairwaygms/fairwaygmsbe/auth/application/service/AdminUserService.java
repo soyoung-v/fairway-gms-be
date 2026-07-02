@@ -84,9 +84,73 @@ public class AdminUserService {
         return AdminUserRes.from(user);
     }
 
+    // ADMIN 전용 — status 없으면 전체 목록 반환
+    @Transactional(readOnly = true)
+    public List<AdminUserRes> getUsers(AuthenticatedUser admin, UserStatus status) {
+        validateAdmin(admin);
+        List<User> users = status != null
+                ? userRepository.findByStatusAndIsDeletedFalseOrderByCreatedAtAsc(status)
+                : userRepository.findByIsDeletedFalseOrderByCreatedAtAsc();
+        return users.stream().map(AdminUserRes::from).toList();
+    }
+
+    // Manager 전용 — 자기 골프장 소속 CADDY 승인 대기 목록
+    @Transactional(readOnly = true)
+    public List<AdminUserRes> getPendingCaddiesForManager(AuthenticatedUser manager) {
+        validateManager(manager);
+        return userRepository.findByRoleAndStatusAndGolfCourseIdAndIsDeletedFalseOrderByCreatedAtAsc(
+                        UserRole.CADDY, UserStatus.PENDING, manager.getGolfCourseId())
+                .stream()
+                .map(AdminUserRes::from)
+                .toList();
+    }
+
+    // Manager 전용 — 자기 골프장 소속 CADDY만 승인 가능
+    @Transactional
+    public AdminUserRes approveCaddieAsManager(AuthenticatedUser manager, Long userId) {
+        validateManager(manager);
+        User user = getUser(userId);
+        if (user.getRole() != UserRole.CADDY) {
+            throw new BusinessException(AuthErrorCode.INVALID_ROLE, "Manager는 CADDY 계정만 승인할 수 있습니다.");
+        }
+        if (!manager.getGolfCourseId().equals(user.getGolfCourseId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "소속 골프장의 캐디만 승인할 수 있습니다.");
+        }
+        if (user.getStatus() != UserStatus.PENDING) {
+            throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "승인 대기 상태가 아닌 사용자입니다.");
+        }
+        user.approve(manager.getUserId());
+        caddieService.createOnApproval(user);
+        return AdminUserRes.from(user);
+    }
+
+    // Manager 전용 — 자기 골프장 소속 CADDY만 거절 가능
+    @Transactional
+    public AdminUserRes rejectCaddieAsManager(AuthenticatedUser manager, Long userId) {
+        validateManager(manager);
+        User user = getUser(userId);
+        if (user.getRole() != UserRole.CADDY) {
+            throw new BusinessException(AuthErrorCode.INVALID_ROLE, "Manager는 CADDY 계정만 거절할 수 있습니다.");
+        }
+        if (!manager.getGolfCourseId().equals(user.getGolfCourseId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "소속 골프장의 캐디만 거절할 수 있습니다.");
+        }
+        if (user.getStatus() != UserStatus.PENDING) {
+            throw new BusinessException(AuthErrorCode.ALREADY_PROCESSED, "승인 대기 상태가 아닌 사용자입니다.");
+        }
+        user.reject(manager.getUserId());
+        return AdminUserRes.from(user);
+    }
+
     // Method Security를 켜지 않고 Service 내부에서 ADMIN 권한을 검증한다.
     private void validateAdmin(AuthenticatedUser user) {
         if (user == null || user.getRole() != UserRole.ADMIN) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void validateManager(AuthenticatedUser user) {
+        if (user == null || user.getRole() != UserRole.MANAGER) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

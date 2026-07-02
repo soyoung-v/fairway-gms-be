@@ -2,6 +2,7 @@ package com.fairwaygms.fairwaygmsbe.auth.application.controller;
 
 import com.fairwaygms.fairwaygmsbe.auth.application.model.res.AdminUserRes;
 import com.fairwaygms.fairwaygmsbe.auth.application.service.AdminUserService;
+import com.fairwaygms.fairwaygmsbe.auth.domain.enums.UserStatus;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -23,6 +25,15 @@ import java.util.List;
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
+
+    // ADMIN 전용 전체 계정 목록 — status 파라미터 없으면 전체 반환
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<AdminUserRes>>> getUsers(
+            @AuthenticationPrincipal AuthenticatedUser admin,
+            @RequestParam(required = false) UserStatus status
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(adminUserService.getUsers(admin, status)));
+    }
 
     // ADMIN 전용 승인 대기 계정 목록
     @GetMapping("/pending")
