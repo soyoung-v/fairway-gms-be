@@ -110,6 +110,15 @@ class FairwayGmsBeApplicationTests {
     @MockitoBean
     private MonthlySettlementService monthlySettlementService;
 
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.board.application.service.BoardPostService boardPostService;
+
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.board.application.service.BoardCommentService boardCommentService;
+
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.board.application.service.SwapRequestService swapRequestService;
+
     // JPA 비활성화 테스트 프로필에서 @EnableJpaAuditing과 충돌 방지
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
