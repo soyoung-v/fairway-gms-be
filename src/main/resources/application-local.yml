@@ -74,3 +74,5 @@ fairway:
       email: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_EMAIL:}
       password: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_PASSWORD:}
       name: ${FAIRWAY_GMS_BOOTSTRAP_ADMIN_NAME:관리자}
+  firebase:
+    credentials-path: ${FIREBASE_CREDENTIALS_PATH:}

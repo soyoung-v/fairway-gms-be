@@ -38,6 +38,9 @@ dependencies {
     // Excel 파싱/생성 (예약팀 업로드)
     implementation 'org.apache.poi:poi-ooxml:5.3.0'
 
+    // Firebase Admin SDK (FCM 서버 발송)
+    implementation 'com.google.firebase:firebase-admin:9.4.3'
+
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j'
