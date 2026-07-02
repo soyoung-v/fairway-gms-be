@@ -5,6 +5,8 @@ import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.UploadConfirmRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.UploadPreviewRowRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.service.ReservationTeamUploadService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +19,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "예약팀")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation/reservation-teams/upload")

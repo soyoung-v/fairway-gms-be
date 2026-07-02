@@ -8,6 +8,8 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.req.GenerateTeeTi
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.GenerateTeeTimesRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.TeeTimeRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.service.TeeTimeService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "티타임")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation/tee-times")

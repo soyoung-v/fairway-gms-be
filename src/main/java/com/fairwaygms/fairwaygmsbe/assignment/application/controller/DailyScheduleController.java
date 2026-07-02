@@ -5,6 +5,8 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.DailySchedul
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.DailyScheduleService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+@AdminScopeApi
+@Tag(name = "배정표")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/assignment/schedules")

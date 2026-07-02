@@ -7,6 +7,8 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CartAutoAssi
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.CartAssignmentService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "카트 배정")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/assignment/carts")

@@ -6,12 +6,16 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.req.CreateOperati
 import com.fairwaygms.fairwaygmsbe.operation.application.model.req.UpdateOperationSettingReq;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.OperationSettingRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.service.OperationSettingService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+@AdminScopeApi
+@Tag(name = "운영 설정")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation/settings")

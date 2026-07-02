@@ -10,6 +10,8 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.req.UpdateVipReq;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.ReservationTeamDetailRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.ReservationTeamRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.service.ReservationTeamService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "예약팀")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation/reservation-teams")

@@ -6,6 +6,8 @@ import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.CreateGolfCo
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateGolfCourseReq;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.GolfCourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.service.GolfCourseService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 // 골프장 등록/수정/조회/선택 API
+@AdminScopeApi
+@Tag(name = "골프장 관리")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/golf-course/golf-courses")

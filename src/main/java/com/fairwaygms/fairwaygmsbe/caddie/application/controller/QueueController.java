@@ -7,6 +7,8 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.QueueRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.QueueService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "순번 관리")
 @RestController
 @RequiredArgsConstructor
 public class QueueController {

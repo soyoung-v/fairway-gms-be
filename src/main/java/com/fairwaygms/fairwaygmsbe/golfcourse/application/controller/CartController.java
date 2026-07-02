@@ -7,6 +7,8 @@ import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartRe
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateCartStatusReq;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CartRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.service.GolfCourseService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 // 카트 등록/수정/조회/상태변경/반납 API
+@AdminScopeApi
+@Tag(name = "카트 관리")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/golf-course")

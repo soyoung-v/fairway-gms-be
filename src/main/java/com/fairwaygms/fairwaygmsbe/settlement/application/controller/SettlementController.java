@@ -6,6 +6,8 @@ import com.fairwaygms.fairwaygmsbe.settlement.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.res.*;
 import com.fairwaygms.fairwaygmsbe.settlement.application.service.FeePolicyService;
 import com.fairwaygms.fairwaygmsbe.settlement.application.service.MonthlySettlementService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "캐디피")
 @RestController
 @RequestMapping("/api/settlement")
 @RequiredArgsConstructor

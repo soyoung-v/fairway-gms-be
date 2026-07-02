@@ -10,6 +10,7 @@ import com.fairwaygms.fairwaygmsbe.notification.application.model.res.Notificati
 import com.fairwaygms.fairwaygmsbe.notification.application.service.FcmTokenService;
 import com.fairwaygms.fairwaygmsbe.notification.application.service.NotificationService;
 import com.fairwaygms.fairwaygmsbe.notification.application.service.NotificationSettingService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Tag(name = "알림")
 @RestController
 @RequestMapping("/api/notification")
 @RequiredArgsConstructor

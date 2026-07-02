@@ -5,6 +5,7 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MyQueueRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieMobileService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
+@Tag(name = "캐디 모바일")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/caddie/me")

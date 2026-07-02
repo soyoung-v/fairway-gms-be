@@ -7,6 +7,8 @@ import com.fairwaygms.fairwaygmsbe.operation.application.model.req.UpdateRainPol
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.RainPolicyRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.model.res.SpecialDayRes;
 import com.fairwaygms.fairwaygmsbe.operation.application.service.OperationPolicyService;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@AdminScopeApi
+@Tag(name = "운영 정책")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/operation")

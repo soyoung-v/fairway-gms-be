@@ -14,6 +14,8 @@ import com.fairwaygms.fairwaygmsbe.board.application.service.BoardCommentService
 import com.fairwaygms.fairwaygmsbe.board.application.service.BoardPostService;
 import com.fairwaygms.fairwaygmsbe.board.application.service.SwapRequestService;
 import com.fairwaygms.fairwaygmsbe.board.domain.enums.PostCategory;
+import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.fairwaygms.fairwaygmsbe.board.domain.enums.SwapRequestStatus;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -33,6 +35,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@AdminScopeApi
+@Tag(name = "게시판")
 @RestController
 @RequestMapping("/api/board")
 @RequiredArgsConstructor
