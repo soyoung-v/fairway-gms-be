@@ -119,6 +119,12 @@ class FairwayGmsBeApplicationTests {
     @MockitoBean
     private com.fairwaygms.fairwaygmsbe.board.application.service.SwapRequestService swapRequestService;
 
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.notification.application.service.NotificationEventListener notificationEventListener;
+
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.settlement.application.service.SettlementEventListener settlementEventListener;
+
     // JPA 비활성화 테스트 프로필에서 @EnableJpaAuditing과 충돌 방지
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
