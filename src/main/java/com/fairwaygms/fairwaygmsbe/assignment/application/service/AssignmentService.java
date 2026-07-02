@@ -4,6 +4,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHistoryRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CourseAssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory;
@@ -11,6 +12,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentChangeType;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentStatus;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentHistoryRepository;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.CartAssignmentRepository;
 import com.fairwaygms.fairwaygmsbe.assignment.exception.AssignmentErrorCode;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
@@ -61,6 +63,7 @@ public class AssignmentService {
 
     private final AssignmentRepository assignmentRepository;
     private final AssignmentHistoryRepository historyRepository;
+    private final CartAssignmentRepository cartAssignmentRepository;
     private final ReservationTeamRepository reservationTeamRepository;
     private final CaddieRepository caddieRepository;
     private final CaddieQueueRepository queueRepository;
@@ -93,6 +96,32 @@ public class AssignmentService {
         return assignmentRepository.findByGolfCourseAndDateWithDetails(targetId, date)
                 .stream()
                 .map(AssignmentRes::from)
+                .toList();
+    }
+
+    // 코스별 배정표 조회 — courseId 기준 필터 + 카트 정보 포함 (API-512, FR-519)
+    @Transactional(readOnly = true)
+    public List<CourseAssignmentRes> getAssignmentsByCourse(Long golfCourseId, LocalDate date,
+                                                             Long courseId, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+
+        List<com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment> assignments =
+                assignmentRepository.findByGolfCourseAndDateAndCourse(targetId, date, courseId);
+
+        // teeTimeId → CartAssignment 맵 구성
+        Map<Long, com.fairwaygms.fairwaygmsbe.assignment.domain.entity.CartAssignment> cartMap =
+                cartAssignmentRepository.findActiveByGolfCourseAndDate(targetId, date)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                ca -> ca.getTeeTime().getId(),
+                                ca -> ca,
+                                (a, b) -> a));
+
+        return assignments.stream()
+                .map(a -> CourseAssignmentRes.from(
+                        a,
+                        cartMap.get(a.getReservationTeam().getTeeTime().getId())))
                 .toList();
     }
 

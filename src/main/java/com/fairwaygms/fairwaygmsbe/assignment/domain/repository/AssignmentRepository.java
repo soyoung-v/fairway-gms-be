@@ -24,14 +24,32 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     @Query("SELECT a FROM Assignment a " +
             "JOIN FETCH a.caddie " +
             "JOIN FETCH a.reservationTeam rt " +
-            "JOIN FETCH rt.teeTime " +
+            "JOIN FETCH rt.teeTime tt " +
+            "JOIN FETCH tt.course " +
             "WHERE a.golfCourse.id = :golfCourseId " +
             "AND a.assignmentDate = :assignmentDate " +
             "AND a.isDeleted = false " +
-            "ORDER BY rt.teeTime.startTime ASC")
+            "ORDER BY tt.startTime ASC")
     List<Assignment> findByGolfCourseAndDateWithDetails(
             @Param("golfCourseId") Long golfCourseId,
             @Param("assignmentDate") LocalDate assignmentDate);
+
+    // 골프장+날짜+코스 기준 배정 목록 — 코스별 배정표 조회에 사용 (API-512)
+    @Query("SELECT a FROM Assignment a " +
+            "JOIN FETCH a.caddie " +
+            "JOIN FETCH a.reservationTeam rt " +
+            "JOIN FETCH rt.teeTime tt " +
+            "JOIN FETCH tt.course c " +
+            "JOIN FETCH tt.operationPeriod " +
+            "WHERE a.golfCourse.id = :golfCourseId " +
+            "AND a.assignmentDate = :assignmentDate " +
+            "AND c.id = :courseId " +
+            "AND a.isDeleted = false " +
+            "ORDER BY tt.startTime ASC")
+    List<Assignment> findByGolfCourseAndDateAndCourse(
+            @Param("golfCourseId") Long golfCourseId,
+            @Param("assignmentDate") LocalDate assignmentDate,
+            @Param("courseId") Long courseId);
 
     // 캐디+날짜 기준 활성 배정 수 — 하프백 허용 여부 판단에 사용 (최대 2건)
     int countByCaddie_IdAndAssignmentDateAndIsDeletedFalse(Long caddieId, LocalDate assignmentDate);

@@ -4,6 +4,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHistoryRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CourseAssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
@@ -29,6 +30,18 @@ import java.util.List;
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
+
+    // API-512: 코스별 배정표 조회 (FR-519)
+    @GetMapping("/schedules/by-course")
+    public ResponseEntity<ApiResponse<List<CourseAssignmentRes>>> getAssignmentsByCourse(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam(required = false) Long golfCourseId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate assignmentDate,
+            @RequestParam Long courseId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                assignmentService.getAssignmentsByCourse(golfCourseId, assignmentDate, courseId, auth)));
+    }
 
     // API-511: 일일 배정표 조회 (FR-518)
     @GetMapping("/schedules/daily")

@@ -28,6 +28,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -57,12 +58,23 @@ public class DailyScheduleService {
         return DailyScheduleRes.from(dailyScheduleRepository.save(schedule));
     }
 
-    // 배정표 조회
+    // 배정표 조회 — scheduleId 기준
     @Transactional(readOnly = true)
     public DailyScheduleRes getDailySchedule(Long scheduleId, AuthenticatedUser auth) {
         validateManager(auth);
         DailySchedule schedule = findSchedule(scheduleId);
         validateGolfCourseAccess(schedule.getGolfCourse().getId(), auth);
+        return DailyScheduleRes.from(schedule);
+    }
+
+    // 날짜 기준 배정표 조회 — 페이지 새로고침 시 scheduleId 없이 date로 조회 (프론트 갭 해소)
+    @Transactional(readOnly = true)
+    public DailyScheduleRes getDailyScheduleByDate(LocalDate scheduleDate, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        DailySchedule schedule = dailyScheduleRepository
+                .findByGolfCourse_IdAndScheduleDateAndIsDeletedFalse(golfCourseId, scheduleDate)
+                .orElseThrow(() -> new BusinessException(AssignmentErrorCode.DAILY_SCHEDULE_NOT_FOUND));
         return DailyScheduleRes.from(schedule);
     }
 

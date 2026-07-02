@@ -26,4 +26,14 @@ public interface CartAssignmentRepository extends JpaRepository<CartAssignment, 
     List<CartAssignment> findByGolfCourseAndDate(
             @Param("golfCourseId") Long golfCourseId,
             @Param("assignmentDate") LocalDate assignmentDate);
+
+    // 골프장+날짜 기준 카트 배정 teeTimeId 맵 구성용 — 코스별 배정표 조회 시 사용
+    @Query("SELECT ca FROM CartAssignment ca " +
+            "JOIN FETCH ca.cart " +
+            "WHERE ca.golfCourse.id = :golfCourseId " +
+            "AND ca.assignmentDate = :assignmentDate " +
+            "AND ca.isDeleted = false")
+    List<CartAssignment> findActiveByGolfCourseAndDate(
+            @Param("golfCourseId") Long golfCourseId,
+            @Param("assignmentDate") LocalDate assignmentDate);
 }

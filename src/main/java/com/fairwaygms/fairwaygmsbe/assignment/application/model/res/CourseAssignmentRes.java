@@ -1,39 +1,37 @@
 package com.fairwaygms.fairwaygmsbe.assignment.application.model.res;
 
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.CartAssignment;
 
-import java.time.LocalDate;
 import java.time.LocalTime;
 
-public record AssignmentRes(
-        Long id,
-        Long reservationTeamId,
+public record CourseAssignmentRes(
+        Long assignmentId,
+        Long teamId,
         String teamName,
-        Long teeTimeId,
         LocalTime teeTime,
-        String courseName,
+        Integer periodNumber,
         Long caddieId,
         String caddieName,
-        LocalDate assignmentDate,
+        Long cartId,
+        String cartNumber,
         String status,
-        boolean isLocked,
-        boolean isHalfBack
+        boolean isLocked
 ) {
-    public static AssignmentRes from(Assignment a) {
+    public static CourseAssignmentRes from(Assignment a, CartAssignment cartAssignment) {
         var teeTimeEntity = a.getReservationTeam().getTeeTime();
-        return new AssignmentRes(
+        return new CourseAssignmentRes(
                 a.getId(),
                 a.getReservationTeam().getId(),
                 a.getReservationTeam().getTeamName(),
-                teeTimeEntity.getId(),
                 teeTimeEntity.getStartTime(),
-                teeTimeEntity.getCourse().getName(),
+                teeTimeEntity.getOperationPeriod().getPeriodNumber(),
                 a.getCaddie().getId(),
                 a.getCaddie().getName(),
-                a.getAssignmentDate(),
+                cartAssignment != null ? cartAssignment.getCart().getId() : null,
+                cartAssignment != null ? cartAssignment.getCart().getCartNumber() : null,
                 a.getStatus().name(),
-                a.getIsLocked(),
-                a.getIsHalfBack()
+                a.getIsLocked()
         );
     }
 }

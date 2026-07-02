@@ -9,10 +9,13 @@ import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @AdminScopeApi
 @Tag(name = "배정표")
@@ -31,6 +34,16 @@ public class DailyScheduleController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(dailyScheduleService.createDailySchedule(request, auth)));
+    }
+
+    // 날짜 기준 배정표 조회 — 프론트 페이지 새로고침 시 scheduleId 없이 date로 조회
+    @GetMapping
+    public ResponseEntity<ApiResponse<DailyScheduleRes>> getDailyScheduleByDate(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate scheduleDate
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                dailyScheduleService.getDailyScheduleByDate(scheduleDate, auth)));
     }
 
     // 배정표 단건 조회
