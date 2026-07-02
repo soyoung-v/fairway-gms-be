@@ -24,7 +24,7 @@
 
 **Modular Monolith** — 단일 Spring Boot 애플리케이션, 단일 MySQL DB
 
-MSA 전환 가능성을 고려해 도메인 경계를 명확히 분리했으나, 팀 규모와 초기 운영 비용을 고려해 단일 배포 단위로 유지합니다. ([ADR-003](.agent-docs/adr/ADR-003-modular-monolith-vs-msa.md))
+MSA 전환 가능성을 고려해 도메인 경계를 명확히 분리했으나, 팀 규모와 초기 운영 비용을 고려해 단일 배포 단위로 유지합니다.
 
 ```
 com.fairwaygms.fairwaygmsbe
@@ -54,12 +54,12 @@ com.fairwaygms.fairwaygmsbe
 
 ### 캐디 배정 (assignment)
 - 수동/자동 배정, 그룹 일괄 배정
-- 자동배정: 캐디 그룹별 순번 이월 알고리즘 ([ADR-005](.agent-docs/adr/ADR-005-assignment-auto-rotation-and-schedule.md))
+- 자동배정: 캐디 그룹별 순번 이월 알고리즘
 - 배정표 DRAFT → CONFIRMED → COMPLETED 상태 전이
 - 카트 배정 / 반납 / 자동배정
 
 ### 이벤트 기반 후속 처리
-배정 확정·완료 시 `@TransactionalEventListener(AFTER_COMMIT)` + `@Transactional(REQUIRES_NEW)` 조합으로 독립 처리합니다. ([ADR-007](.agent-docs/adr/ADR-007-transactional-event-listener-strategy.md))
+배정 확정·완료 시 `@TransactionalEventListener(AFTER_COMMIT)` + `@Transactional(REQUIRES_NEW)` 조합으로 독립 처리합니다.
 
 | 이벤트 | 후속 처리 |
 |---|---|
@@ -67,18 +67,18 @@ com.fairwaygms.fairwaygmsbe
 | 배정 완료 | 정산 기록 스냅샷 생성, 카트 AVAILABLE 자동 복원 |
 
 ### 정산 (settlement)
-- 배정 완료 시점의 캐디피를 스냅샷으로 저장 → 이후 정책 변경과 무관하게 과거 정산 재현 가능 ([ADR-006](.agent-docs/adr/ADR-006-settlement-snapshot-strategy.md))
+- 배정 완료 시점의 캐디피를 스냅샷으로 저장 → 이후 정책 변경과 무관하게 과거 정산 재현 가능
 - 월 정산 집계 / 확정 / 수동 조정 / 이력
 
 ### FCM 알림 (notification)
-- 인터페이스(`FcmPushService`) 기반 구현 분리: `MockFcmPushService`(local/test) / `RealFcmPushService`(prod) ([ADR-008](.agent-docs/adr/ADR-008-fcm-push-interface-separation.md))
+- 인터페이스(`FcmPushService`) 기반 구현 분리: `MockFcmPushService`(local/test) / `RealFcmPushService`(prod)
 - 알림 설정, FCM 토큰 등록/해제
 
 ---
 
 ## 인증 방식
 
-JWT를 **HttpOnly Cookie**로 관리합니다. ([ADR-001](.agent-docs/adr/ADR-001-jwt-httponly-cookie-strategy.md))
+JWT를 **HttpOnly Cookie**로 관리합니다.
 
 ```
 AccessToken  → 쿠키명: at  (경로: /)
@@ -170,21 +170,4 @@ Swagger UI에서 전체 API를 확인할 수 있습니다.
 ```
 
 - 단위 테스트: 도메인 핵심 규칙 검증 (Validation, 상태 전이, 권한)
-- 통합 테스트: 로컬 MySQL 기반, `@Transactional` 자동 롤백으로 데이터 격리 ([ADR-002](.agent-docs/adr/ADR-002-integration-test-strategy.md))
-
----
-
-## 설계 결정 (ADR)
-
-주요 설계 판단은 `.agent-docs/adr/` 폴더에 기록되어 있습니다.
-
-| ADR | 주제 |
-|---|---|
-| ADR-001 | JWT HttpOnly Cookie 전략 |
-| ADR-002 | 통합 테스트 전략 (로컬 MySQL + @Transactional 롤백) |
-| ADR-003 | Modular Monolith 선택 (MSA 대신) |
-| ADR-004 | CartAssignment UNIQUE에 tee_time_id 추가 |
-| ADR-005 | 캐디 자동배정 알고리즘 및 순번 이월 설계 |
-| ADR-006 | 정산 스냅샷 전략 (캐디피 정책 불변성 보장) |
-| ADR-007 | 이벤트 리스너 AFTER_COMMIT + REQUIRES_NEW 전략 |
-| ADR-008 | FCM 구현체 인터페이스 분리 (Mock/Real) |
+- 통합 테스트: 로컬 MySQL 기반, `@Transactional` 자동 롤백으로 데이터 격리
