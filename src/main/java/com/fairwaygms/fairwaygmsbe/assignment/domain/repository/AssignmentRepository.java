@@ -20,12 +20,15 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     // 재배정 전 기존 활성 배정 조회
     Optional<Assignment> findByReservationTeam_IdAndIsDeletedFalse(Long reservationTeamId);
 
-    // 골프장+날짜 기준 배정 목록 — 일별 배정표 조회에 사용
+    // 골프장+날짜 기준 배정 목록 — 일별 배정표 조회 및 시간표 게시글 생성에 사용
+    // caddieGroup을 LEFT JOIN FETCH하여 조별 편성 정보를 N+1 없이 로딩
     @Query("SELECT a FROM Assignment a " +
-            "JOIN FETCH a.caddie " +
+            "JOIN FETCH a.caddie c " +
+            "LEFT JOIN FETCH c.caddieGroup " +
             "JOIN FETCH a.reservationTeam rt " +
             "JOIN FETCH rt.teeTime tt " +
             "JOIN FETCH tt.course " +
+            "JOIN FETCH tt.operationPeriod " +
             "WHERE a.golfCourse.id = :golfCourseId " +
             "AND a.assignmentDate = :assignmentDate " +
             "AND a.isDeleted = false " +
