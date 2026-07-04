@@ -69,6 +69,12 @@ class FairwayGmsBeApplicationTests {
     private AssignmentService assignmentService;
 
     @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentExcelService assignmentExcelService;
+
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentMobileService assignmentMobileService;
+
+    @MockitoBean
     private DailyScheduleService dailyScheduleService;
 
     @MockitoBean
@@ -109,6 +115,9 @@ class FairwayGmsBeApplicationTests {
 
     @MockitoBean
     private MonthlySettlementService monthlySettlementService;
+
+    @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.settlement.application.service.SettlementExcelService settlementExcelService;
 
     @MockitoBean
     private com.fairwaygms.fairwaygmsbe.board.application.service.BoardPostService boardPostService;

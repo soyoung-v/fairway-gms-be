@@ -6,15 +6,20 @@ import com.fairwaygms.fairwaygmsbe.settlement.application.model.req.*;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.res.*;
 import com.fairwaygms.fairwaygmsbe.settlement.application.service.FeePolicyService;
 import com.fairwaygms.fairwaygmsbe.settlement.application.service.MonthlySettlementService;
+import com.fairwaygms.fairwaygmsbe.settlement.application.service.SettlementExcelService;
 import com.fairwaygms.fairwaygmsbe.common.config.AdminScopeApi;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @AdminScopeApi
@@ -26,6 +31,7 @@ public class SettlementController {
 
     private final FeePolicyService feePolicyService;
     private final MonthlySettlementService monthlySettlementService;
+    private final SettlementExcelService settlementExcelService;
 
     // API-601: 캐디피 정책 등록/수정
     @PutMapping("/fee-policies")
@@ -106,18 +112,30 @@ public class SettlementController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    // API-610: 보험 자료 다운로드 (stub — Excel 구현은 별도 단계)
+    // API-610: 과세자료 관리대장 다운로드 (FR-611) — 주민등록번호/내외국인 칸은 수기 기입
     @GetMapping("/insurance/export")
     public ResponseEntity<byte[]> exportInsurance(@RequestParam String yearMonth,
                                                   @AuthenticationPrincipal AuthenticatedUser auth) {
-        throw new UnsupportedOperationException("보험 자료 Excel 다운로드 미구현");
+        byte[] file = settlementExcelService.exportInsurance(yearMonth, auth);
+        return excelResponse(file, "caddie_tax_" + yearMonth + ".xlsx");
     }
 
-    // API-611: 정산 자료 Excel 다운로드 (stub)
+    // API-611: 정산 자료 Excel 다운로드 (FR-612)
     @GetMapping("/excel")
     public ResponseEntity<byte[]> exportSettlement(@RequestParam String yearMonth,
                                                    @AuthenticationPrincipal AuthenticatedUser auth) {
-        throw new UnsupportedOperationException("정산 자료 Excel 다운로드 미구현");
+        byte[] file = settlementExcelService.exportSettlement(yearMonth, auth);
+        return excelResponse(file, "settlement_" + yearMonth + ".xlsx");
+    }
+
+    private ResponseEntity<byte[]> excelResponse(byte[] file, String filename) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build());
+        return ResponseEntity.ok().headers(headers).body(file);
     }
 
     // API-612: 정산 변경 이력 조회

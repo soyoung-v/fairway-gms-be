@@ -52,7 +52,8 @@ public class SettlementEventListener {
             try {
                 CompletionType completionType = resolveCompletionType(a.getReservationTeam().getStatus());
                 int holes = resolveHoles(completionType);
-                BigDecimal fee = computeFee(policy, completionType, holes, a.getIsHalfBack());
+                BigDecimal fee = computeFee(policy, completionType, holes, a.getIsHalfBack(),
+                        a.getReservationTeam().getPlayerCount());
 
                 assignmentRecordService.createRecord(
                         event.getGolfCourseId(), a.getId(),
@@ -84,13 +85,21 @@ public class SettlementEventListener {
     }
 
     private BigDecimal computeFee(CaddieFeepolicy policy, CompletionType completionType,
-                                  int holes, boolean isHalfBack) {
-        return switch (completionType) {
+                                  int holes, boolean isHalfBack, Integer playerCount) {
+        BigDecimal fee = switch (completionType) {
             case NORMAL -> isHalfBack && policy.getHalfRoundFee() != null
                     ? policy.getHalfRoundFee()
                     : policy.getFullRoundFee();
             case RAIN_CANCELLED, MID_CANCELLED -> feePolicyService.computeRainFee(policy, holes, isHalfBack);
             case NO_SHOW -> feePolicyService.computeNoShowFee(policy);
         };
+
+        // 5인 플레이 팀은 정상 완료 시에만 추가 캐디피 가산 (2~4인 동일 요금)
+        if (completionType == CompletionType.NORMAL
+                && playerCount != null && playerCount >= 5
+                && policy.getExtraPlayerFee() != null) {
+            fee = fee.add(policy.getExtraPlayerFee());
+        }
+        return fee;
     }
 }

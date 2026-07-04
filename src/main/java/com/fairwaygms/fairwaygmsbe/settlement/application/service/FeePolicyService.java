@@ -39,11 +39,11 @@ public class FeePolicyService {
         if (policy == null) {
             policy = CaddieFeepolicy.create(golfCourseId,
                     req.fullRoundFee(), req.halfRoundFee(), req.halfBackType(),
-                    req.noShowPolicy(), req.noShowFee());
+                    req.noShowPolicy(), req.noShowFee(), req.extraPlayerFee());
             policy = feePolicyRepository.save(policy);
         } else {
             policy.update(req.fullRoundFee(), req.halfRoundFee(), req.halfBackType(),
-                    req.noShowPolicy(), req.noShowFee());
+                    req.noShowPolicy(), req.noShowFee(), req.extraPlayerFee());
         }
         return FeePolicyRes.from(policy);
     }

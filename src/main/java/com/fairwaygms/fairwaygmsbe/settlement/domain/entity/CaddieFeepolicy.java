@@ -42,6 +42,10 @@ public class CaddieFeepolicy extends BaseEntity {
     @Column(name = "no_show_fee", precision = 10, scale = 2)
     private BigDecimal noShowFee;
 
+    // 5인 플레이 팀 추가 캐디피 — 2~4인은 동일, 5인 이상 팀만 기본 캐디피에 가산
+    @Column(name = "extra_player_fee", precision = 10, scale = 2)
+    private BigDecimal extraPlayerFee;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;
 
@@ -50,7 +54,8 @@ public class CaddieFeepolicy extends BaseEntity {
 
     public static CaddieFeepolicy create(Long golfCourseId, BigDecimal fullRoundFee,
                                          BigDecimal halfRoundFee, HalfBackType halfBackType,
-                                         NoShowPolicy noShowPolicy, BigDecimal noShowFee) {
+                                         NoShowPolicy noShowPolicy, BigDecimal noShowFee,
+                                         BigDecimal extraPlayerFee) {
         CaddieFeepolicy p = new CaddieFeepolicy();
         p.golfCourseId = golfCourseId;
         p.fullRoundFee = fullRoundFee;
@@ -58,16 +63,19 @@ public class CaddieFeepolicy extends BaseEntity {
         p.halfBackType = halfBackType;
         p.noShowPolicy = noShowPolicy != null ? noShowPolicy : NoShowPolicy.NONE;
         p.noShowFee = noShowFee;
+        p.extraPlayerFee = extraPlayerFee;
         p.isDeleted = false;
         return p;
     }
 
     public void update(BigDecimal fullRoundFee, BigDecimal halfRoundFee,
-                       HalfBackType halfBackType, NoShowPolicy noShowPolicy, BigDecimal noShowFee) {
+                       HalfBackType halfBackType, NoShowPolicy noShowPolicy, BigDecimal noShowFee,
+                       BigDecimal extraPlayerFee) {
         this.fullRoundFee = fullRoundFee;
         this.halfRoundFee = halfRoundFee;
         this.halfBackType = halfBackType;
         this.noShowPolicy = noShowPolicy != null ? noShowPolicy : NoShowPolicy.NONE;
         this.noShowFee = noShowFee;
+        this.extraPlayerFee = extraPlayerFee;
     }
 }

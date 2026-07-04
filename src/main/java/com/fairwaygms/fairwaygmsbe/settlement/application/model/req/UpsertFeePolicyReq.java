@@ -12,5 +12,6 @@ public record UpsertFeePolicyReq(
         BigDecimal halfRoundFee,
         HalfBackType halfBackType,
         @NotNull NoShowPolicy noShowPolicy,
-        BigDecimal noShowFee
+        BigDecimal noShowFee,
+        BigDecimal extraPlayerFee
 ) {}

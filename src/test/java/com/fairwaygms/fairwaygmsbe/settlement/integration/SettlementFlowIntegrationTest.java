@@ -104,7 +104,7 @@ class SettlementFlowIntegrationTest extends AbstractIntegrationTest {
         // when
         feePolicyService.upsertFeePolicy(new UpsertFeePolicyReq(
                 new BigDecimal("100000"), new BigDecimal("60000"),
-                HalfBackType.SINGLE, NoShowPolicy.NONE, null), managerAuth);
+                HalfBackType.SINGLE, NoShowPolicy.NONE, null, null), managerAuth);
 
         FeePolicyRes result = feePolicyService.getFeePolicy(managerAuth);
 
@@ -117,11 +117,11 @@ class SettlementFlowIntegrationTest extends AbstractIntegrationTest {
     @Test
     void 캐디피_정책_재등록_시_수정된다() {
         feePolicyService.upsertFeePolicy(new UpsertFeePolicyReq(
-                new BigDecimal("100000"), null, null, NoShowPolicy.NONE, null), managerAuth);
+                new BigDecimal("100000"), null, null, NoShowPolicy.NONE, null, null), managerAuth);
 
         feePolicyService.upsertFeePolicy(new UpsertFeePolicyReq(
                 new BigDecimal("120000"), new BigDecimal("70000"),
-                HalfBackType.DOUBLE, NoShowPolicy.FULL, new BigDecimal("120000")), managerAuth);
+                HalfBackType.DOUBLE, NoShowPolicy.FULL, new BigDecimal("120000"), null), managerAuth);
 
         FeePolicyRes result = feePolicyService.getFeePolicy(managerAuth);
         assertThat(result.fullRoundFee()).isEqualByComparingTo("120000");

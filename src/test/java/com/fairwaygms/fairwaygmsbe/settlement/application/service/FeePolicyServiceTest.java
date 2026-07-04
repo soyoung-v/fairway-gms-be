@@ -46,7 +46,8 @@ class FeePolicyServiceTest {
                 new BigDecimal("60000"),
                 HalfBackType.SINGLE,
                 NoShowPolicy.HALF,
-                new BigDecimal("60000"));
+                new BigDecimal("60000"),
+                null);
     }
 
     // ─── 우천취소 캐디피 계산 ───────────────────────────────────────────────────
@@ -88,7 +89,7 @@ class FeePolicyServiceTest {
     @Test
     void computeNoShowFee_NONE_정책_0원() {
         CaddieFeepolicy nonePolicy = CaddieFeepolicy.create(GOLF_COURSE_ID,
-                new BigDecimal("100000"), null, null, NoShowPolicy.NONE, null);
+                new BigDecimal("100000"), null, null, NoShowPolicy.NONE, null, null);
         BigDecimal fee = feePolicyService.computeNoShowFee(nonePolicy);
         assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
     }
@@ -102,7 +103,7 @@ class FeePolicyServiceTest {
     @Test
     void computeNoShowFee_FULL_정책_fullRoundFee_반환() {
         CaddieFeepolicy fullPolicy = CaddieFeepolicy.create(GOLF_COURSE_ID,
-                new BigDecimal("100000"), null, null, NoShowPolicy.FULL, null);
+                new BigDecimal("100000"), null, null, NoShowPolicy.FULL, null, null);
         BigDecimal fee = feePolicyService.computeNoShowFee(fullPolicy);
         assertThat(fee).isEqualByComparingTo("100000");
     }
@@ -117,7 +118,7 @@ class FeePolicyServiceTest {
 
         UpsertFeePolicyReq req = new UpsertFeePolicyReq(
                 new BigDecimal("100000"), new BigDecimal("60000"),
-                HalfBackType.SINGLE, NoShowPolicy.NONE, null);
+                HalfBackType.SINGLE, NoShowPolicy.NONE, null, null);
 
         FeePolicyRes result = feePolicyService.upsertFeePolicy(req, managerAuth);
 
@@ -132,7 +133,7 @@ class FeePolicyServiceTest {
 
         UpsertFeePolicyReq req = new UpsertFeePolicyReq(
                 new BigDecimal("120000"), new BigDecimal("70000"),
-                HalfBackType.DOUBLE, NoShowPolicy.FULL, new BigDecimal("120000"));
+                HalfBackType.DOUBLE, NoShowPolicy.FULL, new BigDecimal("120000"), null);
 
         FeePolicyRes result = feePolicyService.upsertFeePolicy(req, managerAuth);
 

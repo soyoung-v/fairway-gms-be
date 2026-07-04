@@ -10,7 +10,8 @@ public record FeePolicyRes(
         BigDecimal halfRoundFee,
         String halfBackType,
         String noShowPolicy,
-        BigDecimal noShowFee
+        BigDecimal noShowFee,
+        BigDecimal extraPlayerFee
 ) {
     public static FeePolicyRes from(CaddieFeepolicy p) {
         return new FeePolicyRes(
@@ -19,7 +20,8 @@ public record FeePolicyRes(
                 p.getHalfRoundFee(),
                 p.getHalfBackType() != null ? p.getHalfBackType().name() : null,
                 p.getNoShowPolicy().name(),
-                p.getNoShowFee()
+                p.getNoShowFee(),
+                p.getExtraPlayerFee()
         );
     }
 }
