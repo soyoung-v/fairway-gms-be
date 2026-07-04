@@ -1,0 +1,79 @@
+services:
+
+  # ── MySQL ──────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: fairway-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword       # 로컬 테스트용 (운영에서는 절대 사용 금지)
+      MYSQL_DATABASE: fairway_gms
+      MYSQL_USER: fairway
+      MYSQL_PASSWORD: fairway123
+    ports:
+      - "3307:3306"                           # 로컬 MySQL 3306과 충돌 방지: 3307 사용
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/init:/docker-entrypoint-initdb.d  # 초기 스키마 SQL (필요 시)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ufairway", "-pfairway123"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot App ────────────────────────
+  app:
+    build: .
+    container_name: fairway-app
+    ports:
+      - "8080:8080"
+    environment:
+      # DB
+      DB_URL: jdbc:mysql://db:3306/fairway_gms?useSSL=false&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true
+      DB_USERNAME: fairway
+      DB_PASSWORD: fairway123
+
+      # JWT (로컬 테스트용 — 최소 32자 이상 랜덤 문자열 필요)
+      JWT_SECRET: "local-test-secret-please-change-this-to-random-256bit-key"
+      JWT_ISSUER: fairway-gms
+      JWT_ACCESS_VALIDITY_SECONDS: "3600"
+      JWT_REFRESH_VALIDITY_SECONDS: "604800"
+      JWT_ACCESS_COOKIE_NAME: at
+      JWT_REFRESH_COOKIE_NAME: rt
+      JWT_ACCESS_COOKIE_PATH: /
+      JWT_REFRESH_COOKIE_PATH: /api/auth
+      JWT_COOKIE_SECURE: "false"        # 로컬은 HTTPS 없으므로 false
+      JWT_COOKIE_HTTP_ONLY: "true"
+      JWT_COOKIE_SAME_SITE: Lax
+
+      # 초기 Admin 계정 (첫 실행 시 자동 생성)
+      FAIRWAY_GMS_BOOTSTRAP_ADMIN_ENABLED: "true"
+      FAIRWAY_GMS_BOOTSTRAP_ADMIN_EMAIL: "admin@fairway.com"
+      FAIRWAY_GMS_BOOTSTRAP_ADMIN_PASSWORD: "Admin123!"
+      FAIRWAY_GMS_BOOTSTRAP_ADMIN_NAME: "관리자"
+
+      # 프론트 URL (CORS 허용 origin)
+      FAIRWAY_GMS_FRONTEND_URL: "http://localhost:3000"
+
+      # Mail (Gmail SMTP 기준 — 실제 값 필요)
+      MAIL_HOST: smtp.gmail.com
+      MAIL_PORT: "587"
+      MAIL_USERNAME: ""
+      MAIL_PASSWORD: ""
+
+      # JPA
+      JPA_DDL_AUTO: update    # 로컬 Docker: update (테이블 자동 생성)
+      JPA_SHOW_SQL: "false"
+
+      # Firebase (FCM)
+      FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-credentials.json
+
+    volumes:
+      # 로컬에 있는 Firebase 파일을 컨테이너 안으로 마운트
+      - /Users/soyoung/secure/fairway-gms/fairway-gms-firebase-adminsdk-fbsvc-7c28983d5d.json:/app/secrets/firebase-credentials.json:ro
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

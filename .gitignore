@@ -44,3 +44,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Secrets (Firebase 자격증명 등 실제 키 파일) ###
+secrets/*.json
+secrets/*.p12
+secrets/*.pem
