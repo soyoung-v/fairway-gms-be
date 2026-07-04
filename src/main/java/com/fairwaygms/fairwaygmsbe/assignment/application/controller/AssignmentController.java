@@ -6,6 +6,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRe
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CourseAssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentExcelService;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -14,11 +15,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -30,6 +35,25 @@ import java.util.List;
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
+    private final AssignmentExcelService assignmentExcelService;
+
+    // API-516: 배정표 엑셀 다운로드 (FR-523)
+    @GetMapping("/excel")
+    public ResponseEntity<byte[]> downloadScheduleExcel(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate assignmentDate
+    ) {
+        byte[] file = assignmentExcelService.exportDailySchedule(assignmentDate, auth);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("assignment_" + assignmentDate + ".xlsx", StandardCharsets.UTF_8)
+                .build());
+
+        return ResponseEntity.ok().headers(headers).body(file);
+    }
 
     // API-512: 코스별 배정표 조회 (FR-519)
     @GetMapping("/schedules/by-course")
