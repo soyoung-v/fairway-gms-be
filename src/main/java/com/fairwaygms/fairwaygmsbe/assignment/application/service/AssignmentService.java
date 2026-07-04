@@ -5,6 +5,9 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHi
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CourseAssignmentRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.HalfBackAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.RainCancellationRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.ValidationErrorRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory;
@@ -20,7 +23,6 @@ import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieGroup;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
-import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueueHistory;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.QueueRotationState;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieGroupAssignmentType;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.DailyStatusType;
@@ -37,8 +39,15 @@ import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.common.security.UserRole;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.repository.GolfCourseRepository;
+import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueueHistory;
+import com.fairwaygms.fairwaygmsbe.operation.domain.entity.OperationPeriod;
+import com.fairwaygms.fairwaygmsbe.operation.domain.entity.RainCancellationPolicy;
+import com.fairwaygms.fairwaygmsbe.operation.domain.enums.RainCancellationPolicyType;
+import com.fairwaygms.fairwaygmsbe.operation.domain.repository.RainCancellationPolicyRepository;
 import com.fairwaygms.fairwaygmsbe.operation.domain.entity.ReservationTeam;
 import com.fairwaygms.fairwaygmsbe.operation.domain.entity.TeeTime;
+import com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationPeriodRepository;
+import com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationSettingRepository;
 import com.fairwaygms.fairwaygmsbe.operation.domain.repository.ReservationTeamRepository;
 import com.fairwaygms.fairwaygmsbe.operation.domain.repository.TeeTimeRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +55,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -55,7 +66,9 @@ import java.util.stream.IntStream;
 @Transactional
 public class AssignmentService {
 
-    private static final int MAX_DAILY_ASSIGNMENTS = 2;
+    // 운영 설정이 없을 때의 기본 일일 최대 배정 수 — 실제 한도는 그날 운영 부 수를 따름 (3부제면 3근무)
+    private static final int DEFAULT_MAX_DAILY_ASSIGNMENTS = 2;
+    private static final DateTimeFormatter YEAR_MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
     // 배정 제외 상태 — 이 상태의 캐디는 자동배정 풀에서 제외 (큐 순번은 보존)
     private static final Set<DailyStatusType> EXCLUDED_STATUSES = Set.of(
             DailyStatusType.DAY_OFF, DailyStatusType.ABSENCE, DailyStatusType.ASSIGN_EXCLUDED
@@ -72,6 +85,9 @@ public class AssignmentService {
     private final QueueRotationStateRepository rotationStateRepository;
     private final CaddieDailyStatusRepository caddieDailyStatusRepository;
     private final TeeTimeRepository teeTimeRepository;
+    private final RainCancellationPolicyRepository rainCancellationPolicyRepository;
+    private final OperationSettingRepository operationSettingRepository;
+    private final OperationPeriodRepository operationPeriodRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
 
@@ -146,7 +162,7 @@ public class AssignmentService {
         validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
 
         LocalDate assignmentDate = team.getTeeTime().getPlayDate();
-        validateDailyLimit(caddie.getId(), assignmentDate, req.isHalfBack());
+        validateDailyLimit(golfCourseId, caddie.getId(), assignmentDate, req.isHalfBack());
 
         Assignment assignment = Assignment.create(golfCourse, team, caddie, assignmentDate,
                 req.isLocked(), req.isHalfBack());
@@ -157,6 +173,62 @@ public class AssignmentService {
                 null, caddie, req.reason(), manager));
 
         return AssignmentRes.from(assignment);
+    }
+
+    // 하프백(투근무) 배정 — 캐디 1명에게 같은 날 두 팀을 한 번에 배정 (FR-506)
+    public HalfBackAssignRes halfBackAssign(HalfBackAssignReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        if (req.reservationTeamId1().equals(req.reservationTeamId2())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Caddie caddie = caddieRepository.findByIdAndIsDeletedFalse(req.caddieId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
+
+        ReservationTeam team1 = findTeamWithAccess(req.reservationTeamId1(), auth);
+        ReservationTeam team2 = findTeamWithAccess(req.reservationTeamId2(), auth);
+
+        // 투근무는 같은 날 두 팀 담당이 전제
+        LocalDate assignmentDate = team1.getTeeTime().getPlayDate();
+        if (!assignmentDate.equals(team2.getTeeTime().getPlayDate())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        for (Long teamId : List.of(req.reservationTeamId1(), req.reservationTeamId2())) {
+            if (assignmentRepository.existsByReservationTeam_IdAndIsDeletedFalse(teamId)) {
+                throw new BusinessException(AssignmentErrorCode.ASSIGNMENT_ALREADY_EXISTS);
+            }
+        }
+
+        // 기존 배정 포함 2건 추가가 그날 운영 부 수 한도를 넘으면 거절
+        int currentCount = assignmentRepository
+                .countByCaddie_IdAndAssignmentDateAndIsDeletedFalse(caddie.getId(), assignmentDate);
+        if (currentCount + 2 > resolveDailyMaxAssignments(golfCourseId, assignmentDate)) {
+            throw new BusinessException(AssignmentErrorCode.CADDIE_ASSIGNMENT_LIMIT_EXCEEDED);
+        }
+
+        Assignment a1 = assignmentRepository.save(
+                Assignment.create(golfCourse, team1, caddie, assignmentDate, false, true));
+        Assignment a2 = assignmentRepository.save(
+                Assignment.create(golfCourse, team2, caddie, assignmentDate, false, true));
+        historyRepository.save(AssignmentHistory.record(
+                a1, golfCourse, AssignmentChangeType.MANUAL, null, caddie, req.reason(), manager));
+        historyRepository.save(AssignmentHistory.record(
+                a2, golfCourse, AssignmentChangeType.MANUAL, null, caddie, req.reason(), manager));
+
+        return new HalfBackAssignRes(a1.getId(), a2.getId(), true);
+    }
+
+    private ReservationTeam findTeamWithAccess(Long teamId, AuthenticatedUser auth) {
+        ReservationTeam team = reservationTeamRepository.findByIdAndIsDeletedFalse(teamId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateGolfCourseAccess(team.getGolfCourse().getId(), auth);
+        return team;
     }
 
     // SESSION_FIXED 그룹 일괄 수동 배정 — 지정 티타임부터 그룹 캐디를 순서대로 배정
@@ -296,15 +368,18 @@ public class AssignmentService {
         int assignedCount = 0;
         int skippedCount = 0;
 
+        // 그날 운영 부 수만큼 다근무 허용 (2부제 투근무, 3부제 3근무)
+        int dailyMax = resolveDailyMaxAssignments(golfCourseId, req.assignmentDate());
+
         for (ReservationTeam team : targetTeams) {
-            // 다음 배정 가능한 캐디 탐색 (최대 2*pool 순회 = 투근무 허용)
+            // 다음 배정 가능한 캐디 탐색 (최대 dailyMax*pool 순회 = 다근무 허용)
             Caddie assigned = null;
-            for (int tries = 0; tries < poolSize * MAX_DAILY_ASSIGNMENTS; tries++) {
+            for (int tries = 0; tries < poolSize * dailyMax; tries++) {
                 int idx = pointer % poolSize;
                 Caddie candidate = pool.get(idx).getCaddie();
                 int count = caddieDayCount.getOrDefault(candidate.getId(), 0);
                 pointer++;
-                if (count < MAX_DAILY_ASSIGNMENTS) {
+                if (count < dailyMax) {
                     assigned = candidate;
                     break;
                 }
@@ -316,7 +391,7 @@ public class AssignmentService {
             }
 
             int currentCount = caddieDayCount.getOrDefault(assigned.getId(), 0);
-            boolean isHalfBack = currentCount == 1; // 두 번째 배정 = 투근무
+            boolean isHalfBack = currentCount >= 1; // 두 번째 이후 배정 = 투근무/3근무
 
             Assignment assignment = Assignment.create(golfCourse, team, assigned, req.assignmentDate(), false, isHalfBack);
             assignmentRepository.save(assignment);
@@ -354,7 +429,8 @@ public class AssignmentService {
         validateGolfCourseAccess(newCaddie.getGolfCourse().getId(), auth);
 
         // 재배정 시 새 캐디의 당일 배정 가능 여부 확인
-        validateDailyLimit(newCaddie.getId(), assignment.getAssignmentDate(), assignment.getIsHalfBack());
+        validateDailyLimit(assignment.getGolfCourse().getId(), newCaddie.getId(),
+                assignment.getAssignmentDate(), assignment.getIsHalfBack());
 
         assignment.reassign(newCaddie);
         historyRepository.save(AssignmentHistory.record(
@@ -378,6 +454,112 @@ public class AssignmentService {
         historyRepository.save(AssignmentHistory.record(
                 assignment, assignment.getGolfCourse(), AssignmentChangeType.CANCEL,
                 caddie, null, reason, manager));
+    }
+
+    // 우천취소 반영 — 라운드하지 못한 배정을 취소하고 정책에 따라 캐디 순번 처리 (FR-513/514)
+    // KEEP_ORDER: 순번 유지(재대기) / RESEQUENCE: 순번 소진 처리(당일 대기열 맨 뒤로 이동)
+    public RainCancellationRes applyRainCancellation(RainCancellationReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+        User manager = findUser(auth.getUserId());
+
+        ReservationTeam team = findTeamWithAccess(req.reservationTeamId(), auth);
+
+        Optional<Assignment> activeOpt =
+                assignmentRepository.findByReservationTeam_IdAndIsDeletedFalse(team.getId());
+        if (activeOpt.isEmpty()) {
+            return new RainCancellationRes("해당 팀에 활성 배정이 없어 순번 처리 없이 종료합니다.", false);
+        }
+
+        Assignment assignment = activeOpt.get();
+        validateNotCompleted(assignment);
+        Caddie caddie = assignment.getCaddie();
+        LocalDate date = assignment.getAssignmentDate();
+
+        assignment.cancel();
+        historyRepository.save(AssignmentHistory.record(
+                assignment, golfCourse, AssignmentChangeType.CANCEL,
+                caddie, null, "우천취소 반영", manager));
+
+        RainCancellationPolicyType policyType = rainCancellationPolicyRepository
+                .findByGolfCourse_IdAndIsDeletedFalse(golfCourseId)
+                .map(RainCancellationPolicy::getPolicyType)
+                .orElse(RainCancellationPolicyType.KEEP_ORDER);
+
+        if (policyType == RainCancellationPolicyType.RESEQUENCE) {
+            // 순번 소진 처리 — 당일 대기열 맨 뒤 번호로 이동
+            boolean moved = queueRepository
+                    .findByCaddie_IdAndQueueDateAndIsDeletedFalse(caddie.getId(), date)
+                    .map(queue -> {
+                        int maxNumber = queueRepository
+                                .findByGolfCourse_IdAndQueueDateAndIsDeletedFalseOrderByQueueNumberAsc(golfCourseId, date)
+                                .stream()
+                                .mapToInt(CaddieQueue::getQueueNumber)
+                                .max()
+                                .orElse(queue.getQueueNumber());
+                        int before = queue.getQueueNumber();
+                        queue.adjustNumber(maxNumber + 1);
+                        queueHistoryRepository.save(CaddieQueueHistory.record(
+                                caddie, golfCourse, date, QueueChangeType.MANUAL_ADJUST,
+                                before, maxNumber + 1, "우천취소 순번 재정렬", manager));
+                        return true;
+                    })
+                    .orElse(false);
+            String message = moved
+                    ? "우천취소 반영 완료 — 캐디 순번을 당일 대기열 맨 뒤로 이동했습니다."
+                    : "우천취소 반영 완료 — 당일 대기열에 캐디가 없어 순번 이동을 생략했습니다.";
+            return new RainCancellationRes(message, moved);
+        }
+
+        return new RainCancellationRes("우천취소 반영 완료 — 캐디 순번을 유지합니다(재대기).", true);
+    }
+
+    // 배정 검증 — 중복 배정(DUPLICATE) / 휴무자 배정(OFF_DUTY) 검증 (FR-515/516)
+    @Transactional(readOnly = true)
+    public List<ValidationErrorRes> validateAssignments(LocalDate date, String type, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+
+        List<Assignment> assignments =
+                assignmentRepository.findByGolfCourseAndDateWithDetails(golfCourseId, date);
+        List<ValidationErrorRes> errors = new ArrayList<>();
+
+        boolean checkDuplicate = type == null || "DUPLICATE".equalsIgnoreCase(type);
+        boolean checkOffDuty = type == null || "OFF_DUTY".equalsIgnoreCase(type);
+
+        if (checkDuplicate) {
+            int dailyMax = resolveDailyMaxAssignments(golfCourseId, date);
+            Map<Long, List<Assignment>> byCaddie = assignments.stream()
+                    .collect(Collectors.groupingBy(a -> a.getCaddie().getId()));
+            byCaddie.forEach((caddieId, list) -> {
+                String caddieName = list.get(0).getCaddie().getName();
+                if (list.size() > dailyMax) {
+                    errors.add(new ValidationErrorRes("DUPLICATE", caddieId, caddieName,
+                            "일일 최대 배정 수(" + dailyMax + "건)를 초과해 " + list.size() + "건 배정되었습니다."));
+                }
+                // 같은 티타임에 동일 캐디가 2팀 이상 배정된 경우
+                Map<LocalTime, Long> timeCounts = list.stream().collect(Collectors.groupingBy(
+                        a -> a.getReservationTeam().getTeeTime().getStartTime(), Collectors.counting()));
+                timeCounts.forEach((time, count) -> {
+                    if (count > 1) {
+                        errors.add(new ValidationErrorRes("DUPLICATE", caddieId, caddieName,
+                                time + " 티타임에 " + count + "건 중복 배정되었습니다."));
+                    }
+                });
+            });
+        }
+
+        if (checkOffDuty) {
+            Set<Long> excludedIds = getExcludedCaddieIds(golfCourseId, date);
+            assignments.stream()
+                    .filter(a -> excludedIds.contains(a.getCaddie().getId()))
+                    .forEach(a -> errors.add(new ValidationErrorRes("OFF_DUTY",
+                            a.getCaddie().getId(), a.getCaddie().getName(),
+                            "휴무/결근/배정제외 상태 캐디가 배정되었습니다.")));
+        }
+
+        return errors;
     }
 
     // 당일 큐 순번 교환 (SWAP) — 두 캐디의 queueNumber만 교환
@@ -573,12 +755,28 @@ public class AssignmentService {
         }
     }
 
-    private void validateDailyLimit(Long caddieId, LocalDate date, boolean isHalfBack) {
+    private void validateDailyLimit(Long golfCourseId, Long caddieId, LocalDate date, boolean isHalfBack) {
         int currentCount = assignmentRepository.countByCaddie_IdAndAssignmentDateAndIsDeletedFalse(caddieId, date);
-        int maxAllowed = isHalfBack ? MAX_DAILY_ASSIGNMENTS : 1;
+        int maxAllowed = isHalfBack ? resolveDailyMaxAssignments(golfCourseId, date) : 1;
         if (currentCount >= maxAllowed) {
             throw new BusinessException(AssignmentErrorCode.CADDIE_ASSIGNMENT_LIMIT_EXCEEDED);
         }
+    }
+
+    // 일일 최대 배정 수 = 그날 운영 부 수 (3부제면 3근무 허용)
+    // 1부제여도 하프백(동시 2팀) 케이스가 있으므로 최소 2는 보장
+    private int resolveDailyMaxAssignments(Long golfCourseId, LocalDate date) {
+        String yearMonth = date.format(YEAR_MONTH_FMT);
+        int periodCount = operationSettingRepository
+                .findByGolfCourse_IdAndYearMonthAndIsDeletedFalse(golfCourseId, yearMonth)
+                .map(setting -> operationPeriodRepository
+                        .findByOperationSetting_IdAndIsActiveTrueAndIsDeletedFalse(setting.getId())
+                        .stream()
+                        .map(OperationPeriod::getPeriodNumber)
+                        .collect(Collectors.toSet())
+                        .size())
+                .orElse(0);
+        return Math.max(periodCount, DEFAULT_MAX_DAILY_ASSIGNMENTS);
     }
 
     private void validateNotCompleted(Assignment assignment) {

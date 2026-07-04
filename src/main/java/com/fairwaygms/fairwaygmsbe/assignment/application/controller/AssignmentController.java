@@ -5,6 +5,9 @@ import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentHi
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AssignmentRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.AutoAssignRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.CourseAssignmentRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.HalfBackAssignRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.RainCancellationRes;
+import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.ValidationErrorRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.model.res.UnassignedTeamRes;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentExcelService;
 import com.fairwaygms.fairwaygmsbe.assignment.application.service.AssignmentService;
@@ -88,6 +91,16 @@ public class AssignmentController {
                 .body(ApiResponse.success(assignmentService.manualPreAssign(request, auth)));
     }
 
+    // API-502: 하프백(투근무) 배정 (FR-506)
+    @PostMapping("/half-back")
+    public ResponseEntity<ApiResponse<HalfBackAssignRes>> halfBackAssign(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody HalfBackAssignReq request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(assignmentService.halfBackAssign(request, auth)));
+    }
+
     // API-504: 재배정 (FR-509)
     @PatchMapping("/{assignmentId}/caddie")
     public ResponseEntity<ApiResponse<AssignmentRes>> reassign(
@@ -120,6 +133,27 @@ public class AssignmentController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(
                 assignmentService.unlock(assignmentId, request, auth)));
+    }
+
+    // API-508: 우천취소 반영 (FR-513/514)
+    @PostMapping("/rain-cancellation")
+    public ResponseEntity<ApiResponse<RainCancellationRes>> applyRainCancellation(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody RainCancellationReq request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                assignmentService.applyRainCancellation(request, auth)));
+    }
+
+    // API-509: 배정 검증 (FR-515/516) — type 생략 시 DUPLICATE/OFF_DUTY 모두 검증
+    @GetMapping("/validate")
+    public ResponseEntity<ApiResponse<List<ValidationErrorRes>>> validateAssignments(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate assignmentDate,
+            @RequestParam(required = false) String type
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                assignmentService.validateAssignments(assignmentDate, type, auth)));
     }
 
     // API-517: 배정 변경 이력 조회 (FR-524)

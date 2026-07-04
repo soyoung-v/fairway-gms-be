@@ -53,6 +53,7 @@ class AssignmentServiceTest {
 
     @Mock private AssignmentRepository assignmentRepository;
     @Mock private AssignmentHistoryRepository historyRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.assignment.domain.repository.CartAssignmentRepository cartAssignmentRepository;
     @Mock private ReservationTeamRepository reservationTeamRepository;
     @Mock private CaddieRepository caddieRepository;
     @Mock private CaddieQueueRepository queueRepository;
@@ -61,6 +62,9 @@ class AssignmentServiceTest {
     @Mock private QueueRotationStateRepository rotationStateRepository;
     @Mock private CaddieDailyStatusRepository caddieDailyStatusRepository;
     @Mock private TeeTimeRepository teeTimeRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.RainCancellationPolicyRepository rainCancellationPolicyRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationSettingRepository operationSettingRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationPeriodRepository operationPeriodRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
     @Mock private UserRepository userRepository;
 
@@ -76,10 +80,13 @@ class AssignmentServiceTest {
     @BeforeEach
     void setUp() {
         assignmentService = new AssignmentService(
-                assignmentRepository, historyRepository, reservationTeamRepository,
-                caddieRepository, queueRepository, queueHistoryRepository,
-                caddieGroupRepository, rotationStateRepository, caddieDailyStatusRepository,
-                teeTimeRepository, golfCourseRepository, userRepository
+                assignmentRepository, historyRepository, cartAssignmentRepository,
+                reservationTeamRepository, caddieRepository, queueRepository,
+                queueHistoryRepository, caddieGroupRepository, rotationStateRepository,
+                caddieDailyStatusRepository, teeTimeRepository,
+                rainCancellationPolicyRepository,
+                operationSettingRepository, operationPeriodRepository,
+                golfCourseRepository, userRepository
         );
 
         golfCourse = mockGolfCourse(GOLF_COURSE_ID);
@@ -456,9 +463,16 @@ class AssignmentServiceTest {
     }
 
     private ReservationTeam mockReservationTeam(Long id) {
+        com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Course course =
+                mock(com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Course.class);
+        when(course.getId()).thenReturn(1L);
+        when(course.getName()).thenReturn("A코스");
+
         TeeTime teeTime = mock(TeeTime.class);
+        when(teeTime.getId()).thenReturn(id);
         when(teeTime.getPlayDate()).thenReturn(DATE);
         when(teeTime.getStartTime()).thenReturn(LocalTime.of(8, 0));
+        when(teeTime.getCourse()).thenReturn(course);
 
         ReservationTeam team = mock(ReservationTeam.class);
         when(team.getId()).thenReturn(id);
