@@ -2,6 +2,7 @@ package com.fairwaygms.fairwaygmsbe.caddie.application.controller;
 
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MyCaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MyQueueRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.MySchedulePeriodRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieMobileService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Tag(name = "캐디 모바일")
 @RestController
@@ -37,5 +39,14 @@ public class CaddieMobileController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate queueDate
     ) {
         return ResponseEntity.ok(ApiResponse.success(caddieMobileService.getMyQueue(auth, queueDate)));
+    }
+
+    // API-320 (FR-327): 내 운영 시간표 조회 (Caddy) — targetDate 생략 시 오늘 기준
+    @GetMapping("/schedule")
+    public ResponseEntity<ApiResponse<List<MySchedulePeriodRes>>> getMySchedule(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate targetDate
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(caddieMobileService.getMySchedule(auth, targetDate)));
     }
 }

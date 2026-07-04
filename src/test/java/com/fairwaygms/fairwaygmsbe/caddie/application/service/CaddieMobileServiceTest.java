@@ -32,12 +32,15 @@ class CaddieMobileServiceTest {
     @Mock private CaddieRepository caddieRepository;
     @Mock private CaddieWorkPatternRepository workPatternRepository;
     @Mock private CaddieQueueRepository queueRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationSettingRepository operationSettingRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationPeriodRepository operationPeriodRepository;
 
     private CaddieMobileService caddieMobileService;
 
     @BeforeEach
     void setUp() {
-        caddieMobileService = new CaddieMobileService(caddieRepository, workPatternRepository, queueRepository);
+        caddieMobileService = new CaddieMobileService(caddieRepository, workPatternRepository, queueRepository,
+                operationSettingRepository, operationPeriodRepository);
     }
 
     // ─── 기본정보 조회 ─────────────────────────────────────────────────
