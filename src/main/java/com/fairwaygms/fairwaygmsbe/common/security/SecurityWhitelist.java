@@ -4,6 +4,7 @@ public final class SecurityWhitelist {
 
     // 비로그인 접근 허용 경로
     public static final String[] PERMIT_ALL_PATHS = {
+            "/api/public/**",
             "/api/auth/login",
             "/api/auth/signup",
             "/api/auth/check-email",

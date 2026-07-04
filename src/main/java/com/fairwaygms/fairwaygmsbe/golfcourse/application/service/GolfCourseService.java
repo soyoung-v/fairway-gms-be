@@ -13,6 +13,7 @@ import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.req.UpdateGolfCo
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CartRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.CourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.GolfCourseRes;
+import com.fairwaygms.fairwaygmsbe.golfcourse.application.model.res.PublicGolfCourseRes;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Cart;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.Course;
 import com.fairwaygms.fairwaygmsbe.golfcourse.domain.entity.GolfCourse;
@@ -60,6 +61,15 @@ public class GolfCourseService {
         GolfCourse golfCourse = findGolfCourseById(golfCourseId);
         golfCourse.update(request.name(), request.address(), request.phone());
         return GolfCourseRes.from(golfCourse);
+    }
+
+    // 비로그인 공개 골프장 목록 — 회원가입 드롭다운용, id/이름만 노출
+    @Transactional(readOnly = true)
+    public List<PublicGolfCourseRes> getPublicList() {
+        return golfCourseRepository.findAllByIsDeletedFalse()
+                .stream()
+                .map(PublicGolfCourseRes::from)
+                .toList();
     }
 
     // API-203: 골프장 목록 조회 — Admin은 전체, Manager는 본인 소속 골프장만 반환
