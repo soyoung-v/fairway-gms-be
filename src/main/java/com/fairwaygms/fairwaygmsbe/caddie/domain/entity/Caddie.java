@@ -78,6 +78,26 @@ public class Caddie extends BaseEntity {
         return caddie;
     }
 
+    // 계정 없는 캐디 직접 등록 (FR-301) — 계정은 이후 계정 연동 API로 연결
+    public static Caddie createDirect(GolfCourse golfCourse, String caddieNumber, String name,
+                                      String phone, LocalDate hireDate) {
+        Caddie caddie = new Caddie();
+        caddie.golfCourse = golfCourse;
+        caddie.user = null;
+        caddie.caddieNumber = caddieNumber;
+        caddie.name = name;
+        caddie.phone = phone;
+        caddie.hireDate = hireDate;
+        caddie.status = CaddieStatus.ACTIVE;
+        caddie.isDeleted = false;
+        return caddie;
+    }
+
+    // 캐디-계정 연동 (FR-306) — 캐디 모바일 로그인 식별 기준
+    public void linkAccount(User user) {
+        this.user = user;
+    }
+
     public void updateInfo(String caddieNumber, String phone, LocalDate hireDate) {
         this.caddieNumber = caddieNumber;
         this.phone = phone;

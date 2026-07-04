@@ -1,6 +1,9 @@
 package com.fairwaygms.fairwaygmsbe.caddie.application.controller;
 
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.ChangeCaddieStatusReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.CreateCaddieReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.LinkAccountReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.RoundCompleteReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.SetDesignatedCartReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateCaddieReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateWorkPatternReq;
@@ -8,6 +11,7 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.AvailableCaddieR
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieWithdrawRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.DesignatedCartRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.RoundCompleteRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.WorkPatternRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieService;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.DesignatedCartService;
@@ -35,6 +39,38 @@ public class CaddieController {
 
     private final CaddieService caddieService;
     private final DesignatedCartService designatedCartService;
+
+    // API-301 (FR-301): 캐디 직접 등록 (Manager) — 계정 없는 캐디 등록
+    @PostMapping
+    public ResponseEntity<ApiResponse<CaddieRes>> createCaddie(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody CreateCaddieReq request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(caddieService.createCaddie(request, auth)));
+    }
+
+    // API-306 (FR-306): 캐디-계정 연동 (Manager)
+    @PatchMapping("/{caddieId}/account")
+    public ResponseEntity<ApiResponse<CaddieRes>> linkAccount(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @PathVariable Long caddieId,
+            @Valid @RequestBody LinkAccountReq request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                caddieService.linkAccount(caddieId, request, auth)));
+    }
+
+    // API-314 (FR-315/316): 라운딩 완료 처리 (Manager) — completedAt 생략 시 현재 시각
+    @PatchMapping("/{caddieId}/round-complete")
+    public ResponseEntity<ApiResponse<RoundCompleteRes>> completeRound(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @PathVariable Long caddieId,
+            @RequestBody(required = false) RoundCompleteReq request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                caddieService.completeRound(caddieId, request, auth)));
+    }
 
     // FR-302: 골프장별 캐디 목록 (Admin: golfCourseId 필수, Manager: 소속 골프장 고정)
     @GetMapping

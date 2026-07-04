@@ -42,6 +42,7 @@ import org.mockito.Mockito;
 class CaddieServiceTest {
 
     @Mock private CaddieRepository caddieRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository assignmentRepository;
     @Mock private CaddieWorkPatternRepository workPatternRepository;
     @Mock private CaddieDailyStatusRepository dailyStatusRepository;
     @Mock private CaddieQueueRepository queueRepository;
@@ -53,8 +54,8 @@ class CaddieServiceTest {
     @BeforeEach
     void setUp() {
         caddieService = new CaddieService(
-                caddieRepository, workPatternRepository, dailyStatusRepository,
-                queueRepository, golfCourseRepository, userRepository
+                caddieRepository, assignmentRepository, workPatternRepository,
+                dailyStatusRepository, queueRepository, golfCourseRepository, userRepository
         );
     }
 

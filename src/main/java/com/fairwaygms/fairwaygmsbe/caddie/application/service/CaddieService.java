@@ -3,12 +3,18 @@ package com.fairwaygms.fairwaygmsbe.caddie.application.service;
 import com.fairwaygms.fairwaygmsbe.auth.domain.entity.User;
 import com.fairwaygms.fairwaygmsbe.auth.domain.repository.UserRepository;
 import com.fairwaygms.fairwaygmsbe.auth.exception.AuthErrorCode;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentStatus;
+import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.ChangeCaddieStatusReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.CreateCaddieReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.LinkAccountReq;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.RoundCompleteReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateCaddieReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.UpdateWorkPatternReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.AvailableCaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieWithdrawRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.RoundCompleteRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.WorkPatternRes;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieQueue;
@@ -31,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,6 +53,7 @@ public class CaddieService {
             Set.of(DailyStatusType.DAY_OFF, DailyStatusType.ABSENCE, DailyStatusType.ASSIGN_EXCLUDED);
 
     private final CaddieRepository caddieRepository;
+    private final AssignmentRepository assignmentRepository;
     private final CaddieWorkPatternRepository workPatternRepository;
     private final CaddieDailyStatusRepository dailyStatusRepository;
     private final CaddieQueueRepository queueRepository;
@@ -60,6 +68,77 @@ public class CaddieService {
         CaddieWorkPattern pattern = CaddieWorkPattern.createDefault(caddie, golfCourse);
         workPatternRepository.save(pattern);
         return caddie;
+    }
+
+    // API-301 (FR-301): 캐디 직접 등록 — 계정 없는 캐디 등록, 계정은 이후 연동 API로 연결
+    public CaddieRes createCaddie(CreateCaddieReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Long golfCourseId = auth.getGolfCourseId();
+        GolfCourse golfCourse = findGolfCourse(golfCourseId);
+
+        if (caddieRepository.existsByGolfCourse_IdAndCaddieNumberAndIsDeletedFalse(
+                golfCourseId, req.caddieNumber())) {
+            throw new BusinessException(CaddieErrorCode.DUPLICATE_CADDIE_NUMBER);
+        }
+
+        Caddie caddie = Caddie.createDirect(golfCourse, req.caddieNumber(), req.name(),
+                req.phone(), req.hireDate());
+        caddieRepository.save(caddie);
+
+        // 승인 생성 흐름과 동일하게 기본 근무 패턴 함께 생성
+        workPatternRepository.save(CaddieWorkPattern.createDefault(caddie, golfCourse));
+        return CaddieRes.from(caddie);
+    }
+
+    // API-306 (FR-306): 캐디-계정 연동 — 직접 등록된 캐디에 Caddy 계정을 연결
+    public CaddieRes linkAccount(Long caddieId, LinkAccountReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Caddie caddie = findCaddie(caddieId);
+        validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
+
+        if (caddie.getUser() != null) {
+            throw new BusinessException(CaddieErrorCode.CADDIE_ALREADY_LINKED);
+        }
+
+        User user = userRepository.findByIdAndIsDeletedFalse(req.userId())
+                .orElseThrow(() -> new BusinessException(AuthErrorCode.USER_NOT_FOUND));
+
+        // 다른 골프장 계정 또는 CADDY 이외 역할은 연동 불가
+        if (user.getRole() != UserRole.CADDY
+                || !caddie.getGolfCourse().getId().equals(user.getGolfCourseId())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+        // 해당 계정이 이미 다른 캐디와 연동된 경우
+        if (caddieRepository.findByUser_IdAndIsDeletedFalse(user.getId()).isPresent()) {
+            throw new BusinessException(CaddieErrorCode.CADDIE_ALREADY_LINKED);
+        }
+
+        caddie.linkAccount(user);
+        return CaddieRes.from(caddie);
+    }
+
+    // API-314 (FR-315/316): 라운딩 완료 처리 — 당일 확정 배정 중 가장 이른 건을 완료하고 복귀 시간 기록
+    public RoundCompleteRes completeRound(Long caddieId, RoundCompleteReq req, AuthenticatedUser auth) {
+        validateManager(auth);
+        Caddie caddie = findCaddie(caddieId);
+        validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
+
+        LocalDateTime completedAt = req != null && req.completedAt() != null
+                ? req.completedAt() : LocalDateTime.now();
+
+        // 복귀 시간 기준으로 당일 CONFIRMED 배정을 완료 처리 — 없으면 상태만 응답 (재대기 판단용)
+        boolean assignmentCompleted = assignmentRepository
+                .findConfirmedByCaddieAndDate(caddieId, completedAt.toLocalDate())
+                .stream()
+                .filter(a -> a.getStatus() == AssignmentStatus.CONFIRMED)
+                .findFirst()
+                .map(a -> {
+                    a.complete();
+                    return true;
+                })
+                .orElse(false);
+
+        return new RoundCompleteRes(caddieId, caddie.getStatus().name(), completedAt, assignmentCompleted);
     }
 
     // FR-302: 골프장별 캐디 목록 — ADMIN은 golfCourseId 직접 전달, MANAGER는 소속 골프장만
