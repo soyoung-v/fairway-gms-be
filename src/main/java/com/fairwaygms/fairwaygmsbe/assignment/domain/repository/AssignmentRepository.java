@@ -54,6 +54,21 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
             @Param("assignmentDate") LocalDate assignmentDate,
             @Param("courseId") Long courseId);
 
+    // 캐디 모바일 내 배정 조회 — 확정/완료 배정만 노출 (DRAFT 단계 배정은 캐디에게 숨김)
+    @Query("SELECT a FROM Assignment a " +
+            "JOIN FETCH a.reservationTeam rt " +
+            "JOIN FETCH rt.teeTime tt " +
+            "JOIN FETCH tt.course " +
+            "WHERE a.caddie.id = :caddieId " +
+            "AND a.assignmentDate = :assignmentDate " +
+            "AND a.status IN (com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentStatus.CONFIRMED, " +
+            "com.fairwaygms.fairwaygmsbe.assignment.domain.enums.AssignmentStatus.COMPLETED) " +
+            "AND a.isDeleted = false " +
+            "ORDER BY tt.startTime ASC")
+    List<Assignment> findConfirmedByCaddieAndDate(
+            @Param("caddieId") Long caddieId,
+            @Param("assignmentDate") LocalDate assignmentDate);
+
     // 캐디+날짜 기준 활성 배정 수 — 하프백 허용 여부 판단에 사용 (최대 2건)
     int countByCaddie_IdAndAssignmentDateAndIsDeletedFalse(Long caddieId, LocalDate assignmentDate);
 
