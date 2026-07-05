@@ -92,10 +92,15 @@ public class OAuthService {
             throw new BusinessException(AuthErrorCode.OAUTH_STATE_INVALID, "가입 가능한 역할이 아닙니다.");
         }
 
-        // 카카오가 이메일을 제공하지 않는 경우 provider 기반 대체 이메일 사용 (email 컬럼 NOT NULL·UNIQUE)
-        String email = StringUtils.hasText(claims.email())
-                ? claims.email().trim().toLowerCase()
-                : provider.name().toLowerCase() + "_" + claims.providerId() + "@social.fairway";
+        // 이메일 우선순위: 가입 폼 직접 입력 > 카카오 제공 > provider 기반 대체 이메일 (email 컬럼 NOT NULL·UNIQUE)
+        String email;
+        if (StringUtils.hasText(req.email())) {
+            email = req.email().trim().toLowerCase();
+        } else if (StringUtils.hasText(claims.email())) {
+            email = claims.email().trim().toLowerCase();
+        } else {
+            email = provider.name().toLowerCase() + "_" + claims.providerId() + "@social.fairway";
+        }
         if (userRepository.existsByEmailAndIsDeletedFalse(email)) {
             throw new BusinessException(AuthErrorCode.EMAIL_DUPLICATED);
         }

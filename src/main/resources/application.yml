@@ -13,6 +13,7 @@ spring:
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
+            # account_email은 카카오 비즈앱 전환 + 동의항목 설정 필요 (미제공 시 가입 폼 입력 또는 대체 이메일 처리)
             scope: profile_nickname, account_email
             client-name: Kakao
         provider:
