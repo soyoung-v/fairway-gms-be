@@ -19,11 +19,12 @@ spring:
           auth: true
           starttls:
             enable: true
-  # OAuth2 소셜 로그인은 구현 완료 후 아래 환경변수로 활성화한다.
-  # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT_ID=...
-  # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=...
-  # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT_ID=...
-  # (값이 없으면 이 블록 자체를 두지 않는다 — 빈 client-id는 시작 실패 원인)
+  # 카카오 OAuth2 설정은 base application.yml에 있고 KAKAO_CLIENT_ID/KAKAO_CLIENT_SECRET 환경변수로 주입된다.
+
+# nginx(HTTPS 종료) 뒤에서 X-Forwarded-Proto/Host를 신뢰해야
+# 카카오 redirect_uri가 https://fairway-gms.duckdns.org 기준으로 생성된다.
+server:
+  forward-headers-strategy: framework
 
 fairway:
   jwt:
