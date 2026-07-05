@@ -1,0 +1,71 @@
+# main 브랜치 push 시 자동 배포: Docker 이미지 빌드 → ECR 푸시 → EC2 컨테이너 교체
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  # Actions 탭에서 수동 실행도 가능
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: 055394704328.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REPOSITORY: fairway-gms-be
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 소스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: AWS 자격 증명 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: ECR 로그인
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Docker Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      # EC2(x86_64)용 이미지 빌드. Gradle 빌드는 Dockerfile 멀티스테이지 안에서 실행된다.
+      # sha 태그를 함께 남겨 문제 시 특정 커밋 이미지로 롤백할 수 있다.
+      - name: 이미지 빌드 및 ECR 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # EC2에 SSH 접속해 새 이미지로 컨테이너 교체
+      # 환경변수는 EC2에 미리 올려둔 /home/ec2-user/fairway/.env.production 사용
+      - name: EC2 배포
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          script: |
+            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 055394704328.dkr.ecr.ap-northeast-2.amazonaws.com
+            docker pull 055394704328.dkr.ecr.ap-northeast-2.amazonaws.com/fairway-gms-be:latest
+            docker rm -f fairway-app || true
+            docker run -d --name fairway-app --restart always -p 8080:8080 \
+              --env-file /home/ec2-user/fairway/.env.production \
+              -v /home/ec2-user/secrets/firebase-credentials.json:/app/secrets/firebase-credentials.json:ro \
+              055394704328.dkr.ecr.ap-northeast-2.amazonaws.com/fairway-gms-be:latest
+            echo "앱 기동 대기 중..."
+            sleep 25
+            curl -sf http://localhost:8080/actuator/health || (echo "헬스체크 실패 — 로그:" && docker logs --tail 50 fairway-app && exit 1)
+            docker image prune -f
+            echo "배포 완료 ✅"
