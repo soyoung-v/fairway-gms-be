@@ -24,6 +24,9 @@ public class JwtTokenProvider {
     private static final String CLAIM_TYPE = "type";
     private static final String TOKEN_TYPE_ACCESS = "ACCESS";
     private static final String TOKEN_TYPE_REFRESH = "REFRESH";
+    private static final String TOKEN_TYPE_OAUTH_SIGNUP = "OAUTH_SIGNUP";
+    // 소셜 인증 후 가입 완료 입력까지 허용 시간 (10분)
+    private static final long OAUTH_SIGNUP_TOKEN_VALIDITY_SECONDS = 600;
 
     // local/test 전용 fallback. prod에서는 secret 환경변수가 반드시 필요하다.
     private static final String LOCAL_TEST_FALLBACK_SECRET =
@@ -106,6 +109,43 @@ public class JwtTokenProvider {
     // 토큰 타입 추출
     public String getTokenType(String token) {
         return parseClaims(token).get(CLAIM_TYPE, String.class);
+    }
+
+    // 소셜 최초 가입 임시 토큰 생성 — provider 인증 후 role/골프장 입력 완료까지의 짧은 컨텍스트 (FR-115)
+    public String createOAuthSignupToken(String provider, String providerId, String email, String name) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .id(java.util.UUID.randomUUID().toString())
+                .issuer(jwtProperties.getIssuer())
+                .subject(providerId)
+                .claim(CLAIM_TYPE, TOKEN_TYPE_OAUTH_SIGNUP)
+                .claim("provider", provider)
+                .claim("email", email)
+                .claim("name", name)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(OAUTH_SIGNUP_TOKEN_VALIDITY_SECONDS)))
+                .signWith(secretKey, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    // 소셜 가입 임시 토큰 파싱 — 타입 불일치/만료/위조 시 null 반환
+    public OAuthSignupClaims parseOAuthSignupToken(String token) {
+        try {
+            Claims claims = parseClaims(token);
+            if (!TOKEN_TYPE_OAUTH_SIGNUP.equals(claims.get(CLAIM_TYPE, String.class))) {
+                return null;
+            }
+            return new OAuthSignupClaims(
+                    claims.get("provider", String.class),
+                    claims.getSubject(),
+                    claims.get("email", String.class),
+                    claims.get("name", String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public record OAuthSignupClaims(String provider, String providerId, String email, String name) {
     }
 
     // JWT Claims 파싱

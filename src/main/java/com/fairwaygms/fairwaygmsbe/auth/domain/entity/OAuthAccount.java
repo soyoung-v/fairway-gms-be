@@ -55,4 +55,15 @@ public class OAuthAccount extends BaseEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // 소셜 가입 완료 시 user와 provider 계정 연결 (FR-115)
+    public static OAuthAccount create(Long userId, OAuthProvider provider, String providerId, String email) {
+        OAuthAccount account = new OAuthAccount();
+        account.userId = userId;
+        account.provider = provider;
+        account.providerId = providerId;
+        account.email = email;
+        account.isDeleted = false;
+        return account;
+    }
 }

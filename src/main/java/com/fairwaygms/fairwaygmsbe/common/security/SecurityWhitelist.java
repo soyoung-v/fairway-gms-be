@@ -11,6 +11,7 @@ public final class SecurityWhitelist {
             "/api/auth/token/refresh",
             "/api/auth/password-reset/request",
             "/api/auth/password-reset/confirm",
+            "/api/auth/oauth2/complete",
             "/oauth2/**",
             "/login/oauth2/**",
             "/swagger-ui/**",

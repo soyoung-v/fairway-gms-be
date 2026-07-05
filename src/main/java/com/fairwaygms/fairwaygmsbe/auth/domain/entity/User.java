@@ -102,6 +102,27 @@ public class User extends BaseEntity {
         return user;
     }
 
+    // 소셜(카카오) 최초 가입 계정 생성 — 비밀번호 없이 소셜 계정으로만 로그인 (FR-115)
+    public static User createSocialUser(
+            String email,
+            String name,
+            String phone,
+            UserRole role,
+            Long golfCourseId
+    ) {
+        User user = new User();
+        user.email = email;
+        user.passwordHash = null;
+        user.name = name;
+        user.phone = phone;
+        user.role = role;
+        user.golfCourseId = golfCourseId;
+        user.emailVerified = true;
+        user.status = UserStatus.PENDING;
+        user.isDeleted = false;
+        return user;
+    }
+
     // 초기 ADMIN 계정 생성
     public static User createInitialAdmin(String email, String passwordHash, String name) {
         User user = new User();

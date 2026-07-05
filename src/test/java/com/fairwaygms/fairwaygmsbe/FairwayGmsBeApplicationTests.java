@@ -39,6 +39,9 @@ class FairwayGmsBeApplicationTests {
     private AuthService authService;
 
     @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.auth.application.service.OAuthService oAuthService;
+
+    @MockitoBean
     private AdminBootstrapService adminBootstrapService;
 
     @MockitoBean

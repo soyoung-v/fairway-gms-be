@@ -1,5 +1,7 @@
 package com.fairwaygms.fairwaygmsbe.common.config;
 
+import com.fairwaygms.fairwaygmsbe.auth.infrastructure.OAuth2LoginFailureHandler;
+import com.fairwaygms.fairwaygmsbe.auth.infrastructure.OAuth2LoginSuccessHandler;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtAuthenticationFilter;
 import com.fairwaygms.fairwaygmsbe.common.security.JwtProperties;
 import com.fairwaygms.fairwaygmsbe.common.security.SecurityWhitelist;
@@ -32,7 +34,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+            OAuth2LoginFailureHandler oAuth2LoginFailureHandler
     ) throws Exception {
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -43,6 +47,10 @@ public class SecurityConfig {
                 .formLogin(formLogin -> formLogin.disable())
                 // 브라우저 기본 인증 팝업 비활성화
                 .httpBasic(httpBasic -> httpBasic.disable())
+                // 카카오 소셜 로그인 — 성공/실패 시 프론트 콜백으로 리다이렉트 (FR-113)
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(oAuth2LoginSuccessHandler)
+                        .failureHandler(oAuth2LoginFailureHandler))
                 // 공개 API와 Swagger 접근 허용
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SecurityWhitelist.PERMIT_ALL_PATHS).permitAll()
