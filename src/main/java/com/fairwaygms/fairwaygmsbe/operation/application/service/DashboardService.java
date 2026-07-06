@@ -1,5 +1,6 @@
 package com.fairwaygms.fairwaygmsbe.operation.application.service;
 
+import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.CaddieDailyStatus;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.CaddieStatus;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.enums.DailyStatusType;
@@ -41,6 +42,7 @@ public class DashboardService {
     private final CartRepository cartRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final GolfCourseContextResolver contextResolver;
+    private final AssignmentRepository assignmentRepository;
 
     @Transactional(readOnly = true)
     public DashboardRes getDashboard(LocalDate targetDate, AuthenticatedUser auth) {
@@ -79,8 +81,19 @@ public class DashboardService {
                 .distinct()
                 .count();
 
-        // 배정 도메인 구현 후 연동 예정
-        long unassignedTeams = 0;
+        // FR-421: 당일 배정이 없는 RESERVED 팀 수 — AssignmentService.getUnassignedTeams와 동일 기준
+        Set<Long> assignedTeamIds = assignmentRepository
+                .findByGolfCourseAndDateWithDetails(golfCourseId, targetDate)
+                .stream()
+                .map(a -> a.getReservationTeam().getId())
+                .collect(Collectors.toSet());
+
+        long unassignedTeams = reservationTeamRepository
+                .findByGolfCourseIdAndPlayDate(golfCourseId, targetDate)
+                .stream()
+                .filter(t -> t.getStatus() == ReservationTeamStatus.RESERVED)
+                .filter(t -> !assignedTeamIds.contains(t.getId()))
+                .count();
 
         return new DashboardRes(totalTeams, availableCaddies, availableCarts, unassignedTeams, operatingCourses);
     }
