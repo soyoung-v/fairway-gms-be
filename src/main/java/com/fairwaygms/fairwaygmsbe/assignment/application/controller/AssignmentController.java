@@ -91,6 +91,16 @@ public class AssignmentController {
                 .body(ApiResponse.success(assignmentService.manualPreAssign(request, auth)));
     }
 
+    // ADR-005: SESSION_FIXED 그룹 일괄 수동 배정 — 시작 티타임부터 그룹 캐디를 순서대로 배정
+    @PostMapping("/bulk-session")
+    public ResponseEntity<ApiResponse<List<AssignmentRes>>> bulkSessionAssign(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @Valid @RequestBody BulkSessionAssignReq request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(assignmentService.bulkSessionAssign(request, auth)));
+    }
+
     // API-502: 하프백(투근무) 배정 (FR-506)
     @PostMapping("/half-back")
     public ResponseEntity<ApiResponse<HalfBackAssignRes>> halfBackAssign(
