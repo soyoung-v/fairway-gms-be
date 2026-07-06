@@ -51,6 +51,9 @@ class FairwayGmsBeApplicationTests {
     private CaddieService caddieService;
 
     @MockitoBean
+    private com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieGroupService caddieGroupService;
+
+    @MockitoBean
     private DesignatedCartService designatedCartService;
 
     @MockitoBean

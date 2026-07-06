@@ -20,4 +20,6 @@ public interface CaddieRepository extends JpaRepository<Caddie, Long> {
     Optional<Caddie> findByUser_IdAndIsDeletedFalse(Long userId);
 
     Optional<Caddie> findByGolfCourse_IdAndNameAndIsDeletedFalse(Long golfCourseId, String name);
+
+    long countByCaddieGroup_IdAndIsDeletedFalse(Long caddieGroupId);
 }

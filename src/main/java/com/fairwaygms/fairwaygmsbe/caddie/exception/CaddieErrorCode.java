@@ -20,7 +20,9 @@ public enum CaddieErrorCode implements ErrorCodeSpec {
     CADDIE_ALREADY_LINKED("CADDIE_ALREADY_LINKED", "이미 계정과 연동된 캐디입니다.", HttpStatus.CONFLICT),
     INVALID_CADDIE_STATUS("INVALID_CADDIE_STATUS", "유효하지 않은 캐디 상태입니다.", HttpStatus.BAD_REQUEST),
     // DUTY 타입 등록 시 우선순위(FIRST/SECOND) 누락
-    DUTY_PRIORITY_REQUIRED("DUTY_PRIORITY_REQUIRED", "당번 등록 시 우선순위(FIRST/SECOND)를 입력해야 합니다.", HttpStatus.BAD_REQUEST);
+    DUTY_PRIORITY_REQUIRED("DUTY_PRIORITY_REQUIRED", "당번 등록 시 우선순위(FIRST/SECOND)를 입력해야 합니다.", HttpStatus.BAD_REQUEST),
+    CADDIE_GROUP_NOT_FOUND("CADDIE_GROUP_NOT_FOUND", "캐디 그룹을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    CADDIE_GROUP_HAS_CADDIES("CADDIE_GROUP_HAS_CADDIES", "소속 캐디가 있는 그룹은 삭제할 수 없습니다. 캐디를 다른 그룹으로 이동한 뒤 삭제하세요.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

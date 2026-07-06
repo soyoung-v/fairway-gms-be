@@ -14,7 +14,9 @@ public record CaddieRes(
         String phone,
         LocalDate hireDate,
         CaddieStatus status,
-        String statusLabel
+        String statusLabel,
+        Long caddieGroupId,
+        String caddieGroupName
 ) {
     public static CaddieRes from(Caddie caddie) {
         return new CaddieRes(
@@ -26,7 +28,9 @@ public record CaddieRes(
                 caddie.getPhone(),
                 caddie.getHireDate(),
                 caddie.getStatus(),
-                caddie.getStatus().getLabel()
+                caddie.getStatus().getLabel(),
+                caddie.getCaddieGroup() != null ? caddie.getCaddieGroup().getId() : null,
+                caddie.getCaddieGroup() != null ? caddie.getCaddieGroup().getName() : null
         );
     }
 }

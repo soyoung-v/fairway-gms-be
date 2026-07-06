@@ -1,5 +1,6 @@
 package com.fairwaygms.fairwaygmsbe.caddie.application.controller;
 
+import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.AssignCaddieGroupReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.ChangeCaddieStatusReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.CreateCaddieReq;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.req.LinkAccountReq;
@@ -13,6 +14,7 @@ import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.CaddieWithdrawRe
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.DesignatedCartRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.RoundCompleteRes;
 import com.fairwaygms.fairwaygmsbe.caddie.application.model.res.WorkPatternRes;
+import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieGroupService;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.CaddieService;
 import com.fairwaygms.fairwaygmsbe.caddie.application.service.DesignatedCartService;
 import com.fairwaygms.fairwaygmsbe.common.response.ApiResponse;
@@ -39,6 +41,18 @@ public class CaddieController {
 
     private final CaddieService caddieService;
     private final DesignatedCartService designatedCartService;
+    private final CaddieGroupService caddieGroupService;
+
+    // ADR-005: 캐디 그룹 지정/해제 — groupId=null이면 해제(HOUSE 취급)
+    @PatchMapping("/{caddieId}/group")
+    public ResponseEntity<ApiResponse<CaddieRes>> assignGroup(
+            @AuthenticationPrincipal AuthenticatedUser auth,
+            @PathVariable Long caddieId,
+            @RequestBody AssignCaddieGroupReq request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+                caddieGroupService.assignCaddieGroup(caddieId, request, auth)));
+    }
 
     // API-301 (FR-301): 캐디 직접 등록 (Manager) — 계정 없는 캐디 등록
     @PostMapping
