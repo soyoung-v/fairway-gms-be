@@ -47,10 +47,12 @@ com.fairwaygms.fairwaygmsbe
 
 ### 인증 (auth)
 - 이메일 회원가입 / 로그인 / 로그아웃
+- **카카오 소셜 로그인** (Spring Security OAuth2 Client) — 최초 가입 시 임시 가입 토큰 쿠키로 역할/골프장 선택 절차 연결
 - JWT AccessToken + RefreshToken (HttpOnly Cookie, Refresh Token Rotation)
 - 비밀번호 재설정 (Gmail SMTP, SHA-256 토큰 해시)
 - 관리자(ADMIN) 사용자 승인·거절·퇴사 처리
 - 매니저(MANAGER) 캐디 계정 승인·거절 (소속 골프장 한정)
+- 탈퇴 시 이메일 익명화로 소프트 삭제와 UNIQUE(email) 공존 (재가입 가능)
 
 ### 캐디 배정 (assignment)
 - 수동/자동 배정, 그룹 일괄 배정
@@ -82,7 +84,7 @@ JWT를 **HttpOnly Cookie**로 관리합니다.
 
 ```
 AccessToken  → 쿠키명: at  (경로: /)
-RefreshToken → 쿠키명: rt  (경로: /api/auth/token/refresh)
+RefreshToken → 쿠키명: rt  (경로: /api/auth — 재발급 + 로그아웃 시 DB 토큰 폐기용)
 ```
 
 - 프론트엔드는 JWT를 직접 읽거나 저장하지 않습니다.
@@ -121,7 +123,7 @@ JWT_REFRESH_VALIDITY_SECONDS=604800
 JWT_ACCESS_COOKIE_NAME=at
 JWT_REFRESH_COOKIE_NAME=rt
 JWT_ACCESS_COOKIE_PATH=/
-JWT_REFRESH_COOKIE_PATH=/api/auth/token/refresh
+JWT_REFRESH_COOKIE_PATH=/api/auth
 JWT_COOKIE_SECURE=false
 JWT_COOKIE_HTTP_ONLY=true
 JWT_COOKIE_SAME_SITE=Lax
@@ -151,11 +153,28 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 ## API 문서
 
-Swagger UI에서 전체 API를 확인할 수 있습니다.
+Swagger UI에서 전체 API를 확인할 수 있습니다. 코드에서 런타임 자동 생성되므로 항상 최신입니다.
 
-- **21개 컨트롤러**, 도메인별 Tag 그룹핑
-- `ADMIN` 골프장 범위 API에만 `X-Selected-Golf-Course-Id` 헤더 자동 표시
+- **25개 컨트롤러**, 도메인별 Tag 그룹핑
+- `ADMIN` 골프장 범위 API에만 `X-Selected-Golf-Course-Id` 헤더 자동 표시 (`@AdminScopeApi`)
 - HttpOnly Cookie 인증 방식 문서화
+
+---
+
+## 배포
+
+| 구성 | 서비스 |
+|---|---|
+| 백엔드 | AWS EC2 (t3.micro) + Docker + nginx (HTTPS, Let's Encrypt) |
+| DB | AWS RDS MySQL 8.4 |
+| 이미지 저장소 | AWS ECR |
+| 프론트엔드 | Vercel |
+| 도메인 | DuckDNS |
+
+**CI/CD**: GitHub Actions — `main` 브랜치 push 시 자동으로 빌드 → ECR 푸시 → EC2 배포 → `/actuator/health` 헬스체크까지 수행합니다 (`.github/workflows/deploy.yml`).
+
+- prod는 nginx 뒤에서 TLS가 종료되므로 `server.forward-headers-strategy: framework`로 OAuth2 redirect_uri를 https로 복원합니다.
+- 운영 환경변수는 EC2의 `.env.production` 파일로 주입하며(`--env-file`), 비밀값은 git과 워크플로우 로그에 노출되지 않습니다.
 
 ---
 
