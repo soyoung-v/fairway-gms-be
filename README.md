@@ -55,8 +55,8 @@ com.fairwaygms.fairwaygmsbe
 - 탈퇴 시 이메일 익명화로 소프트 삭제와 UNIQUE(email) 공존 (재가입 가능)
 
 ### 캐디 배정 (assignment)
-- 수동/자동 배정, 그룹 일괄 배정
-- 자동배정: 캐디 그룹별 순번 이월 알고리즘
+- 수동/자동 배정, SESSION_FIXED 그룹 일괄 배정 (`POST /api/assignment/bulk-session`)
+- 자동배정: 캐디 그룹별 순번 이월 알고리즘 — 그룹(하우스/우선배정/세션고정)은 `/api/caddie/groups`로 Manager가 직접 관리
 - 배정표 DRAFT → CONFIRMED → COMPLETED 상태 전이
 - 카트 배정 / 반납 / 자동배정
 
@@ -155,7 +155,7 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 
 Swagger UI에서 전체 API를 확인할 수 있습니다. 코드에서 런타임 자동 생성되므로 항상 최신입니다.
 
-- **25개 컨트롤러**, 도메인별 Tag 그룹핑
+- **26개 컨트롤러**, 도메인별 Tag 그룹핑
 - `ADMIN` 골프장 범위 API에만 `X-Selected-Golf-Course-Id` 헤더 자동 표시 (`@AdminScopeApi`)
 - HttpOnly Cookie 인증 방식 문서화
 
