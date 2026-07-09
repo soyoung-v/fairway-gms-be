@@ -32,10 +32,12 @@ public class MonthlySettlementService {
     private final AssignmentRecordRepository assignmentRecordRepository;
     private final SettlementChangeHistoryRepository historyRepository;
     private final CaddieRepository caddieRepository;
+    // ADMIN은 golfCourseId claim이 null이므로 선택 골프장 헤더 기준으로 대상을 결정한다 (FR-610/613)
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     @Transactional(readOnly = true)
     public List<RoundSummaryRes> getRoundSummary(String yearMonth, AuthenticatedUser auth) {
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         List<Object[]> rows = assignmentRecordRepository.aggregateByCaddie(golfCourseId, yearMonth);
         Map<Long, String> nameMap = buildCaddieNameMap(golfCourseId);
 
@@ -50,7 +52,7 @@ public class MonthlySettlementService {
 
     @Transactional(readOnly = true)
     public List<IncomeSummaryRes> getIncomeSummary(String yearMonth, AuthenticatedUser auth) {
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         List<Object[]> rows = assignmentRecordRepository.aggregateByCaddie(golfCourseId, yearMonth);
         Map<Long, String> nameMap = buildCaddieNameMap(golfCourseId);
 
@@ -80,7 +82,7 @@ public class MonthlySettlementService {
 
     @Transactional
     public MonthlySettlementRes confirmMonth(String yearMonth, AuthenticatedUser auth) {
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         MonthlySettlement settlement = getOrCreateSettlement(golfCourseId, yearMonth);
 
         if (settlement.isConfirmed()) {
@@ -123,7 +125,7 @@ public class MonthlySettlementService {
     public void cancelConfirmMonth(String yearMonth, AuthenticatedUser auth) {
         MonthlySettlement settlement = settlementRepository
                 .findByGolfCourseIdAndSettlementYearMonthAndIsDeletedFalse(
-                        auth.getGolfCourseId(), yearMonth)
+                        contextResolver.resolveTargetGolfCourseId(auth), yearMonth)
                 .orElseThrow(() -> new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
 
         if (!settlement.isConfirmed()) {
@@ -135,7 +137,7 @@ public class MonthlySettlementService {
 
     @Transactional
     public IncomeSummaryRes adjustCaddieFee(Long caddieId, AdjustCaddieFeeReq req, AuthenticatedUser auth) {
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         MonthlySettlement settlement = getOrCreateSettlement(golfCourseId, req.yearMonth());
 
         if (settlement.isConfirmed()) {
@@ -176,7 +178,7 @@ public class MonthlySettlementService {
     public Page<SettlementHistoryRes> getHistory(String yearMonth, Long caddieId,
                                                  int page, int size, AuthenticatedUser auth) {
         return historyRepository.findByYearMonthAndOptionalCaddie(
-                        auth.getGolfCourseId(), yearMonth, caddieId, PageRequest.of(page, size))
+                        contextResolver.resolveTargetGolfCourseId(auth), yearMonth, caddieId, PageRequest.of(page, size))
                 .map(SettlementHistoryRes::from);
     }
 

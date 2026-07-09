@@ -90,13 +90,17 @@ public class AssignmentService {
     private final OperationPeriodRepository operationPeriodRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     // 배정 변경 이력 조회 — 날짜 + 캐디(선택) 필터 (FR-524)
     @Transactional(readOnly = true)
     public List<AssignmentHistoryRes> getHistory(Long golfCourseId, LocalDate assignmentDate,
                                                   Long caddieId, AuthenticatedUser auth) {
-        validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        // FR-524: Admin+Manager 조회 가능 — ADMIN은 X-Selected-Golf-Course-Id 헤더 기준
+        if (!auth.isAdmin()) {
+            validateManager(auth);
+        }
+        Long targetId = contextResolver.resolveTargetGolfCourseId(auth);
         List<com.fairwaygms.fairwaygmsbe.assignment.domain.entity.AssignmentHistory> histories =
                 caddieId != null
                         ? historyRepository.findByGolfCourseAndDateAndCaddie(targetId, assignmentDate, caddieId)

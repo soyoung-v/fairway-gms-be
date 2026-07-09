@@ -67,6 +67,7 @@ class AssignmentServiceTest {
     @Mock private com.fairwaygms.fairwaygmsbe.operation.domain.repository.OperationPeriodRepository operationPeriodRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
     @Mock private UserRepository userRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private AssignmentService assignmentService;
 
@@ -86,7 +87,7 @@ class AssignmentServiceTest {
                 caddieDailyStatusRepository, teeTimeRepository,
                 rainCancellationPolicyRepository,
                 operationSettingRepository, operationPeriodRepository,
-                golfCourseRepository, userRepository
+                golfCourseRepository, userRepository, contextResolver
         );
 
         golfCourse = mockGolfCourse(GOLF_COURSE_ID);

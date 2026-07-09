@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -53,8 +54,12 @@ public class DashboardService {
         GolfCourse golfCourse = golfCourseRepository.findByIdAndIsDeletedFalse(golfCourseId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.GOLF_COURSE_NOT_FOUND));
 
-        long totalTeams = reservationTeamRepository.countByGolfCourse_IdAndStatusAndIsDeletedFalse(
-                golfCourseId, ReservationTeamStatus.RESERVED);
+        // FR-421: 일일 현황이므로 대상 날짜의 예약팀만 센다 (기존엔 날짜 무관 전체 RESERVED를 집계)
+        List<com.fairwaygms.fairwaygmsbe.operation.domain.entity.ReservationTeam> targetDateTeams =
+                reservationTeamRepository.findByGolfCourseIdAndPlayDate(golfCourseId, targetDate);
+        long totalTeams = targetDateTeams.stream()
+                .filter(t -> t.getStatus() == ReservationTeamStatus.RESERVED)
+                .count();
 
         Set<Long> excludedCaddieIds = caddieDailyStatusRepository
                 .findByGolfCourse_IdAndStatusDateAndIsDeletedFalse(golfCourseId, targetDate)
@@ -88,9 +93,7 @@ public class DashboardService {
                 .map(a -> a.getReservationTeam().getId())
                 .collect(Collectors.toSet());
 
-        long unassignedTeams = reservationTeamRepository
-                .findByGolfCourseIdAndPlayDate(golfCourseId, targetDate)
-                .stream()
+        long unassignedTeams = targetDateTeams.stream()
                 .filter(t -> t.getStatus() == ReservationTeamStatus.RESERVED)
                 .filter(t -> !assignedTeamIds.contains(t.getId()))
                 .count();
