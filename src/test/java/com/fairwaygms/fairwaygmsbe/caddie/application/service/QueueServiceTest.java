@@ -44,6 +44,7 @@ class QueueServiceTest {
     @Mock private QueueRotationStateRepository rotationStateRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
     @Mock private UserRepository userRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private QueueService queueService;
 
@@ -54,7 +55,7 @@ class QueueServiceTest {
         queueService = new QueueService(
                 caddieRepository, queueRepository, queueHistoryRepository,
                 caddieGroupRepository, rotationStateRepository,
-                golfCourseRepository, userRepository
+                golfCourseRepository, userRepository, contextResolver
         );
     }
 

@@ -27,6 +27,7 @@ class FeePolicyServiceTest {
 
     @Mock private CaddieFeepolicyRepository feePolicyRepository;
     @Mock private AssignmentRepository assignmentRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private FeePolicyService feePolicyService;
 
@@ -38,7 +39,7 @@ class FeePolicyServiceTest {
 
     @BeforeEach
     void setUp() {
-        feePolicyService = new FeePolicyService(feePolicyRepository, assignmentRepository);
+        feePolicyService = new FeePolicyService(feePolicyRepository, assignmentRepository, contextResolver);
         managerAuth = new AuthenticatedUser(1L, UserRole.MANAGER, GOLF_COURSE_ID);
 
         policy = CaddieFeepolicy.create(GOLF_COURSE_ID,

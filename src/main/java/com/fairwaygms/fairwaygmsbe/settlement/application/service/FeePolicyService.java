@@ -29,10 +29,16 @@ public class FeePolicyService {
 
     private final CaddieFeepolicyRepository feePolicyRepository;
     private final AssignmentRepository assignmentRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     @Transactional
     public FeePolicyRes upsertFeePolicy(UpsertFeePolicyReq req, AuthenticatedUser auth) {
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         CaddieFeepolicy policy = feePolicyRepository.findByGolfCourseIdAndIsDeletedFalse(golfCourseId)
                 .orElse(null);
 
@@ -50,13 +56,13 @@ public class FeePolicyService {
 
     @Transactional(readOnly = true)
     public FeePolicyRes getFeePolicy(AuthenticatedUser auth) {
-        return FeePolicyRes.from(getPolicy(auth.getGolfCourseId()));
+        return FeePolicyRes.from(getPolicy(targetGolfCourseId(auth)));
     }
 
     @Transactional(readOnly = true)
     public FeeCalculationRes calculateRainCancellationFee(RainCancellationCalculateReq req,
                                                           AuthenticatedUser auth) {
-        CaddieFeepolicy policy = getPolicy(auth.getGolfCourseId());
+        CaddieFeepolicy policy = getPolicy(targetGolfCourseId(auth));
         Assignment assignment = getAssignment(req.assignmentId());
 
         BigDecimal fee = computeRainFee(policy, req.playedHoleCount(), assignment.getIsHalfBack());
@@ -65,7 +71,7 @@ public class FeePolicyService {
 
     @Transactional(readOnly = true)
     public FeeCalculationRes calculateNoShowFee(NoShowCalculateReq req, AuthenticatedUser auth) {
-        CaddieFeepolicy policy = getPolicy(auth.getGolfCourseId());
+        CaddieFeepolicy policy = getPolicy(targetGolfCourseId(auth));
         getAssignment(req.assignmentId()); // 존재 확인
 
         BigDecimal fee = computeNoShowFee(policy);

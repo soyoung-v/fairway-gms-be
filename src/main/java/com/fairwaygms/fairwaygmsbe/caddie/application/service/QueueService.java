@@ -50,12 +50,18 @@ public class QueueService {
     private final QueueRotationStateRepository rotationStateRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // FR-312: 날짜 기준 대기 순번 목록 조회
     @Transactional(readOnly = true)
     public List<QueueRes> getQueues(Long golfCourseId, LocalDate queueDate, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
         return queueRepository
                 .findByGolfCourse_IdAndQueueDateAndIsDeletedFalseOrderByQueueNumberAsc(targetId, queueDate)
                 .stream()
@@ -69,7 +75,7 @@ public class QueueService {
     // 기존 순번이 있으면 소프트 삭제 후 재생성, 이력(RESET)을 남긴다
     public InitializeQueueRes initializeQueues(InitializeQueueReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User changedBy = findUser(auth.getUserId());
 
@@ -233,14 +239,14 @@ public class QueueService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long caddieGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!caddieGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!caddieGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

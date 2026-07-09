@@ -42,11 +42,17 @@ public class DailyScheduleService {
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // 일별 배정표 생성 — DRAFT 상태로 시작, 날짜당 1건만 허용
     public DailyScheduleRes createDailySchedule(CreateDailyScheduleReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         if (dailyScheduleRepository.existsByGolfCourse_IdAndScheduleDateAndIsDeletedFalse(
@@ -71,7 +77,7 @@ public class DailyScheduleService {
     @Transactional(readOnly = true)
     public DailyScheduleRes getDailyScheduleByDate(LocalDate scheduleDate, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         DailySchedule schedule = dailyScheduleRepository
                 .findByGolfCourse_IdAndScheduleDateAndIsDeletedFalse(golfCourseId, scheduleDate)
                 .orElseThrow(() -> new BusinessException(AssignmentErrorCode.DAILY_SCHEDULE_NOT_FOUND));
@@ -178,14 +184,14 @@ public class DailyScheduleService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long resourceGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!resourceGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!resourceGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

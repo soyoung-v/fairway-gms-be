@@ -35,12 +35,13 @@ class DailyStatusServiceTest {
     @Mock private CaddieRepository caddieRepository;
     @Mock private CaddieDailyStatusRepository dailyStatusRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private DailyStatusService dailyStatusService;
 
     @BeforeEach
     void setUp() {
-        dailyStatusService = new DailyStatusService(caddieRepository, dailyStatusRepository, golfCourseRepository);
+        dailyStatusService = new DailyStatusService(caddieRepository, dailyStatusRepository, golfCourseRepository, contextResolver);
     }
 
     // ─── 등록 ─────────────────────────────────────────────────────────

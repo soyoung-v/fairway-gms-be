@@ -30,11 +30,17 @@ public class CaddieGroupService {
     private final CaddieGroupRepository caddieGroupRepository;
     private final CaddieRepository caddieRepository;
     private final GolfCourseRepository golfCourseRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // ADR-005: 그룹 목록 조회 — 골프장에 그룹이 하나도 없으면 기본 하우스 그룹을 lazy 생성한다.
     public List<CaddieGroupRes> getGroups(AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
 
         if (!caddieGroupRepository.existsByGolfCourse_IdAndIsDeletedFalse(golfCourseId)) {
             GolfCourse golfCourse = findGolfCourse(golfCourseId);
@@ -50,7 +56,7 @@ public class CaddieGroupService {
 
     public CaddieGroupRes create(CreateCaddieGroupReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        GolfCourse golfCourse = findGolfCourse(auth.getGolfCourseId());
+        GolfCourse golfCourse = findGolfCourse(targetGolfCourseId(auth));
         CaddieGroup group = caddieGroupRepository.save(
                 CaddieGroup.create(golfCourse, req.name(), req.assignmentType()));
         return CaddieGroupRes.from(group, 0);
@@ -100,13 +106,13 @@ public class CaddieGroupService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long targetGolfCourseId, AuthenticatedUser auth) {
-        if (!targetGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!targetGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

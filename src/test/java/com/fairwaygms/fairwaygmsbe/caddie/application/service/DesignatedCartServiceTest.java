@@ -37,13 +37,14 @@ class DesignatedCartServiceTest {
     @Mock private CaddieDesignatedCartRepository designatedCartRepository;
     @Mock private CartRepository cartRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private DesignatedCartService designatedCartService;
 
     @BeforeEach
     void setUp() {
         designatedCartService = new DesignatedCartService(
-                caddieRepository, designatedCartRepository, cartRepository, golfCourseRepository
+                caddieRepository, designatedCartRepository, cartRepository, golfCourseRepository, contextResolver
         );
     }
 

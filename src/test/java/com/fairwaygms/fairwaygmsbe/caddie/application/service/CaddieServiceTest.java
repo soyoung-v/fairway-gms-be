@@ -48,6 +48,7 @@ class CaddieServiceTest {
     @Mock private CaddieQueueRepository queueRepository;
     @Mock private GolfCourseRepository golfCourseRepository;
     @Mock private UserRepository userRepository;
+    @Mock private com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
     private CaddieService caddieService;
 
@@ -55,7 +56,7 @@ class CaddieServiceTest {
     void setUp() {
         caddieService = new CaddieService(
                 caddieRepository, assignmentRepository, workPatternRepository,
-                dailyStatusRepository, queueRepository, golfCourseRepository, userRepository
+                dailyStatusRepository, queueRepository, golfCourseRepository, userRepository, contextResolver
         );
     }
 
@@ -130,15 +131,31 @@ class CaddieServiceTest {
     // ─── 권한 검증 ───────────────────────────────────────────────────
 
     @Test
-    void MANAGER_전용_API를_ADMIN이_호출하면_FORBIDDEN() {
-        // given — ADMIN은 Manager 전용 수정 API에 접근 불가
+    void 관리_API를_CADDY가_호출하면_FORBIDDEN() {
+        // given — 2026-07-10 정책 변경: ADMIN은 선택 골프장 컨텍스트로 관리 API 접근 허용, CADDY만 차단
         // validateManager()가 repo 조회 전에 예외를 던지므로 stub 불필요
-        AuthenticatedUser admin = admin();
+        AuthenticatedUser caddy = new AuthenticatedUser(50L, UserRole.CADDY, 10L);
 
         // when & then
-        assertThatThrownBy(() -> caddieService.changeStatus(1L, new ChangeCaddieStatusReq(CaddieStatus.ON_LEAVE), admin))
+        assertThatThrownBy(() -> caddieService.changeStatus(1L, new ChangeCaddieStatusReq(CaddieStatus.ON_LEAVE), caddy))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
+    }
+
+    @Test
+    void ADMIN은_선택_골프장_컨텍스트로_관리_API_접근_가능() {
+        // given — ADMIN + 선택 골프장(10) 헤더 → 해당 골프장 캐디 상태 변경 허용
+        GolfCourse gc = golfCourse(10L);
+        Caddie caddie = activeCaddie(1L, gc, "A01");
+        AuthenticatedUser admin = admin();
+        org.mockito.Mockito.lenient().when(contextResolver.resolveTargetGolfCourseId(admin)).thenReturn(10L);
+        when(caddieRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(caddie));
+
+        // when
+        caddieService.changeStatus(1L, new ChangeCaddieStatusReq(CaddieStatus.ON_LEAVE), admin);
+
+        // then
+        assertThat(caddie.getStatus()).isEqualTo(CaddieStatus.ON_LEAVE);
     }
 
     @Test

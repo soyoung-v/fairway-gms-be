@@ -41,11 +41,17 @@ public class CartAssignmentService {
     private final CartRepository cartRepository;
     private final TeeTimeRepository teeTimeRepository;
     private final GolfCourseRepository golfCourseRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // 카트-티타임 배정 — 같은 날짜+티타임에 동일 카트 중복 불가
     public CartAssignmentRes assignCart(CartAssignReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         Cart cart = cartRepository.findByIdAndIsDeletedFalse(req.cartId())
@@ -87,7 +93,7 @@ public class CartAssignmentService {
     // API-520: 카트 자동 배정 — 지정카트 우선, 이후 카트 번호 순 배정
     public CartAutoAssignRes autoAssignCarts(LocalDate assignmentDate, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         List<Assignment> assignments = assignmentRepository.findByGolfCourseAndDateWithDetails(golfCourseId, assignmentDate);
@@ -175,7 +181,7 @@ public class CartAssignmentService {
     @Transactional(readOnly = true)
     public List<CartAssignmentRes> getCartAssignments(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
         return cartAssignmentRepository.findByGolfCourseAndDate(targetId, date)
                 .stream()
                 .map(CartAssignmentRes::from)
@@ -194,14 +200,14 @@ public class CartAssignmentService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long resourceGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!resourceGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!resourceGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

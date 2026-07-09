@@ -34,12 +34,18 @@ public class AssignmentExcelService {
 
     private final AssignmentRepository assignmentRepository;
     private final CartAssignmentRepository cartAssignmentRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // API-516: 배정표 엑셀 다운로드 — 게시판 시간표와 동일하게 부/조 단위로 구성 (FR-523)
     @Transactional(readOnly = true)
     public byte[] exportDailySchedule(LocalDate assignmentDate, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
 
         List<Assignment> assignments = assignmentRepository
                 .findByGolfCourseAndDateWithDetails(golfCourseId, assignmentDate);
@@ -224,7 +230,7 @@ public class AssignmentExcelService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

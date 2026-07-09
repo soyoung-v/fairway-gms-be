@@ -53,12 +53,18 @@ public class SettlementExcelService {
     private final MonthlySettlementCaddieRepository settlementCaddieRepository;
     private final CaddieRepository caddieRepository;
     private final GolfCourseRepository golfCourseRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // API-610: 과세자료 관리대장 다운로드 — 국세청 제출 양식 (FR-611)
     @Transactional(readOnly = true)
     public byte[] exportInsurance(String yearMonth, AuthenticatedUser auth) {
         YearMonth ym = parseYearMonth(yearMonth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         Map<Long, List<AssignmentRecord>> byCaddie = assignmentRecordRepository
@@ -130,7 +136,7 @@ public class SettlementExcelService {
     @Transactional(readOnly = true)
     public byte[] exportSettlement(String yearMonth, AuthenticatedUser auth) {
         parseYearMonth(yearMonth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         List<Object[]> rows = assignmentRecordRepository.aggregateByCaddie(golfCourseId, yearMonth);

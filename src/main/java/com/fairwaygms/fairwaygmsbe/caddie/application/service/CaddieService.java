@@ -59,6 +59,12 @@ public class CaddieService {
     private final CaddieQueueRepository queueRepository;
     private final GolfCourseRepository golfCourseRepository;
     private final UserRepository userRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // FR-301: Caddy 가입 승인 시 auth 도메인에서 호출 — 기본 근무 패턴도 함께 생성
     public Caddie createOnApproval(User user) {
@@ -73,7 +79,7 @@ public class CaddieService {
     // API-301 (FR-301): 캐디 직접 등록 — 계정 없는 캐디 등록, 계정은 이후 연동 API로 연결
     public CaddieRes createCaddie(CreateCaddieReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
 
         if (caddieRepository.existsByGolfCourse_IdAndCaddieNumberAndIsDeletedFalse(
@@ -257,7 +263,7 @@ public class CaddieService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
@@ -267,12 +273,12 @@ public class CaddieService {
             return requestedId;
         }
         // MANAGER/CADDY는 JWT claim의 소속 골프장만 접근 가능
-        return auth.getGolfCourseId();
+        return targetGolfCourseId(auth);
     }
 
     private void validateGolfCourseAccess(Long caddieGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!caddieGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!caddieGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

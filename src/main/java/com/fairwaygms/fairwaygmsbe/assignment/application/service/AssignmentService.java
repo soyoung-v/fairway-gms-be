@@ -92,6 +92,11 @@ public class AssignmentService {
     private final UserRepository userRepository;
     private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
+
     // 배정 변경 이력 조회 — 날짜 + 캐디(선택) 필터 (FR-524)
     @Transactional(readOnly = true)
     public List<AssignmentHistoryRes> getHistory(Long golfCourseId, LocalDate assignmentDate,
@@ -112,7 +117,7 @@ public class AssignmentService {
     @Transactional(readOnly = true)
     public List<AssignmentRes> getAssignments(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
         return assignmentRepository.findByGolfCourseAndDateWithDetails(targetId, date)
                 .stream()
                 .map(AssignmentRes::from)
@@ -124,7 +129,7 @@ public class AssignmentService {
     public List<CourseAssignmentRes> getAssignmentsByCourse(Long golfCourseId, LocalDate date,
                                                              Long courseId, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
 
         List<com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment> assignments =
                 assignmentRepository.findByGolfCourseAndDateAndCourse(targetId, date, courseId);
@@ -149,7 +154,7 @@ public class AssignmentService {
     // isLocked=true이면 자동배정 풀에서 제외되고 Manager 권한으로만 해제 가능 (FR-512)
     public AssignmentRes manualPreAssign(ManualPreAssignReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -182,7 +187,7 @@ public class AssignmentService {
     // 하프백(투근무) 배정 — 캐디 1명에게 같은 날 두 팀을 한 번에 배정 (FR-506)
     public HalfBackAssignRes halfBackAssign(HalfBackAssignReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -239,7 +244,7 @@ public class AssignmentService {
     // 부반(주중2부반 등)이 특정 부의 첫 팀부터 일괄 배정될 때 사용
     public List<AssignmentRes> bulkSessionAssign(BulkSessionAssignReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -303,7 +308,7 @@ public class AssignmentService {
     // ADR-005 Decision 3: 부별 단위로 실행, 이전 부의 rotation 이어서 사용
     public AutoAssignRes autoAssign(AutoAssignReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -464,7 +469,7 @@ public class AssignmentService {
     // KEEP_ORDER: 순번 유지(재대기) / RESEQUENCE: 순번 소진 처리(당일 대기열 맨 뒤로 이동)
     public RainCancellationRes applyRainCancellation(RainCancellationReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -523,7 +528,7 @@ public class AssignmentService {
     @Transactional(readOnly = true)
     public List<ValidationErrorRes> validateAssignments(LocalDate date, String type, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
 
         List<Assignment> assignments =
                 assignmentRepository.findByGolfCourseAndDateWithDetails(golfCourseId, date);
@@ -570,7 +575,7 @@ public class AssignmentService {
     // rotation cursor에는 영향 없음 (ADR-005 Decision 6)
     public void swapQueue(SwapQueueReq req, AuthenticatedUser auth) {
         validateManager(auth);
-        Long golfCourseId = auth.getGolfCourseId();
+        Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
         User manager = findUser(auth.getUserId());
 
@@ -649,7 +654,7 @@ public class AssignmentService {
     @Transactional(readOnly = true)
     public List<UnassignedTeamRes> getUnassignedTeams(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
 
         Set<Long> assignedTeamIds = assignmentRepository.findByGolfCourseAndDateWithDetails(targetId, date)
                 .stream()
@@ -806,14 +811,14 @@ public class AssignmentService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long resourceGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!resourceGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!resourceGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

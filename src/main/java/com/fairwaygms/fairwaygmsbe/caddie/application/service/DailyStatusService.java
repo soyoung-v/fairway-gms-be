@@ -29,6 +29,12 @@ public class DailyStatusService {
     private final CaddieRepository caddieRepository;
     private final CaddieDailyStatusRepository dailyStatusRepository;
     private final GolfCourseRepository golfCourseRepository;
+    private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
+
+    // ADMIN은 X-Selected-Golf-Course-Id 헤더의 선택 골프장, MANAGER는 소속 골프장을 대상으로 한다
+    private Long targetGolfCourseId(AuthenticatedUser auth) {
+        return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
+    }
 
     // FR-317~323: 일별 근무 상태 등록 (휴무/결근/당번/조출/특수근무/배정제외)
     public DailyStatusRes register(RegisterDailyStatusReq req, AuthenticatedUser auth) {
@@ -57,7 +63,7 @@ public class DailyStatusService {
     @Transactional(readOnly = true)
     public List<DailyStatusRes> getByDate(Long golfCourseId, LocalDate statusDate, AuthenticatedUser auth) {
         validateManager(auth);
-        Long targetId = auth.isAdmin() ? golfCourseId : auth.getGolfCourseId();
+        Long targetId = targetGolfCourseId(auth);
         return dailyStatusRepository.findByGolfCourse_IdAndStatusDateAndIsDeletedFalse(targetId, statusDate)
                 .stream()
                 .map(DailyStatusRes::from)
@@ -74,14 +80,14 @@ public class DailyStatusService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (auth.getRole() != UserRole.MANAGER) {
+        if (auth.getRole() != UserRole.MANAGER && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
 
     private void validateGolfCourseAccess(Long caddieGolfCourseId, AuthenticatedUser auth) {
         if (auth.isAdmin()) return;
-        if (!caddieGolfCourseId.equals(auth.getGolfCourseId())) {
+        if (!caddieGolfCourseId.equals(targetGolfCourseId(auth))) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
