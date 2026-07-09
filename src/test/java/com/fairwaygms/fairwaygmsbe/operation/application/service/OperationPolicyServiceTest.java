@@ -92,10 +92,10 @@ class OperationPolicyServiceTest {
     }
 
     @Test
-    void createSpecialDay_failsWhenNotManager() {
+    void createSpecialDay_failsWhenCaddy() {
         // when & then
         assertThatThrownBy(() -> service.createSpecialDay(
-                new CreateSpecialDayReq(LocalDate.of(2025, 6, 1), "현충일"), admin()))
+                new CreateSpecialDayReq(LocalDate.of(2025, 6, 1), "현충일"), caddy()))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
@@ -157,6 +157,10 @@ class OperationPolicyServiceTest {
     }
 
     // ── 픽스처 ─────────────────────────────────────────────────────────────────
+
+    private AuthenticatedUser caddy() {
+        return new AuthenticatedUser(2L, UserRole.CADDY, 10L);
+    }
 
     private AuthenticatedUser admin() {
         return new AuthenticatedUser(1L, UserRole.ADMIN, null);

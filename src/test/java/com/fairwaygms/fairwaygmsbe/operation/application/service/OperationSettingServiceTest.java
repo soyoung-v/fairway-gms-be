@@ -91,9 +91,9 @@ class OperationSettingServiceTest {
     }
 
     @Test
-    void createSetting_failsWhenNotManager() {
+    void createSetting_failsWhenCaddy() {
         // given
-        AuthenticatedUser auth = admin();
+        AuthenticatedUser auth = caddy();
 
         // when & then — ADMIN은 Manager 전용 운영 설정 API에 접근 불가
         assertThatThrownBy(() -> service.createSetting(
@@ -212,6 +212,10 @@ class OperationSettingServiceTest {
     }
 
     // ── 픽스처 ─────────────────────────────────────────────────────────────────
+
+    private AuthenticatedUser caddy() {
+        return new AuthenticatedUser(2L, UserRole.CADDY, 10L);
+    }
 
     private AuthenticatedUser admin() {
         return new AuthenticatedUser(1L, UserRole.ADMIN, null);

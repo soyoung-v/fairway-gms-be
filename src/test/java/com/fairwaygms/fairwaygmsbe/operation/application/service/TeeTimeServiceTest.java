@@ -158,10 +158,10 @@ class TeeTimeServiceTest {
     }
 
     @Test
-    void addTeeTime_failsWhenNotManager() {
+    void addTeeTime_failsWhenCaddy() {
         // when & then
         assertThatThrownBy(() -> service.addTeeTime(
-                new CreateTeeTimeReq(1L, LocalDate.of(2025, 6, 1), LocalTime.of(8, 0), 1), admin()))
+                new CreateTeeTimeReq(1L, LocalDate.of(2025, 6, 1), LocalTime.of(8, 0), 1), caddy()))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
@@ -213,6 +213,10 @@ class TeeTimeServiceTest {
     }
 
     // ── 픽스처 ─────────────────────────────────────────────────────────────────
+
+    private AuthenticatedUser caddy() {
+        return new AuthenticatedUser(2L, UserRole.CADDY, 10L);
+    }
 
     private AuthenticatedUser admin() {
         return new AuthenticatedUser(1L, UserRole.ADMIN, null);

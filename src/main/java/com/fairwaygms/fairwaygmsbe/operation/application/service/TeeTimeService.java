@@ -177,7 +177,7 @@ public class TeeTimeService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (!auth.isManager()) {
+        if (!auth.isManager() && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }

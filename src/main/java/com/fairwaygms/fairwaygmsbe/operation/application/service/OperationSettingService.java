@@ -91,7 +91,7 @@ public class OperationSettingService {
     }
 
     private void validateManager(AuthenticatedUser auth) {
-        if (!auth.isManager()) {
+        if (!auth.isManager() && !auth.isAdmin()) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
     }
