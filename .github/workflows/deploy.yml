@@ -64,8 +64,21 @@ jobs:
               --env-file /home/ec2-user/fairway/.env.production \
               -v /home/ec2-user/secrets/firebase-credentials.json:/app/secrets/firebase-credentials.json:ro \
               055394704328.dkr.ecr.ap-northeast-2.amazonaws.com/fairway-gms-be:latest
-            echo "앱 기동 대기 중..."
-            sleep 25
-            curl -sf http://localhost:8080/actuator/health || (echo "헬스체크 실패 — 로그:" && docker logs --tail 50 fairway-app && exit 1)
+            # t3.micro 기동이 25~30초 수준이라 고정 sleep은 타이밍에 따라 오탐 — 최대 180초 폴링으로 대체
+            echo "앱 기동 대기 중 (최대 180초, 5초 간격 폴링)..."
+            HEALTHY=false
+            for i in $(seq 1 36); do
+              if curl -sf http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "헬스체크 통과 ($((i * 5))초 경과)"
+                HEALTHY=true
+                break
+              fi
+              sleep 5
+            done
+            if [ "$HEALTHY" != "true" ]; then
+              echo "헬스체크 실패 (180초 초과) — 로그:"
+              docker logs --tail 100 fairway-app
+              exit 1
+            fi
             docker image prune -f
             echo "배포 완료 ✅"
