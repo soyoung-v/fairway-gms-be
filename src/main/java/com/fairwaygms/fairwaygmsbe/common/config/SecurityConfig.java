@@ -51,6 +51,15 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2LoginSuccessHandler)
                         .failureHandler(oAuth2LoginFailureHandler))
+                // oauth2Login이 있으면 미인증 요청을 카카오 인증으로 리다이렉트하는 것이 기본 동작이다.
+                // API 서버이므로 401 JSON으로 응답한다 (카카오 진입은 /oauth2/authorization/kakao 명시 호출만).
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                    "{\"success\":false,\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"로그인이 필요합니다.\"}}");
+                        }))
                 // 공개 API와 Swagger 접근 허용
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(SecurityWhitelist.PERMIT_ALL_PATHS).permitAll()

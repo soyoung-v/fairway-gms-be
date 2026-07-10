@@ -13,7 +13,6 @@
 | 구분 | 링크 |
 |---|---|
 | 서비스 (관리자 웹 + 캐디 PWA) | https://fairway-gms-fe.vercel.app |
-| API 서버 | https://fairway-gms.duckdns.org |
 | API 문서 (Swagger UI) | https://fairway-gms.duckdns.org/swagger-ui.html |
 
 ## 테스트 계정
