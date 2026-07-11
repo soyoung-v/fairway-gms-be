@@ -117,7 +117,9 @@ class AssignmentFlowIntegrationTest extends AbstractIntegrationTest {
                 golfCourse.getId(), TEST_DATE);
         assertThat(saved).hasSize(1);
 
-        assertThat(historyRepository.findAll()).hasSize(1);
+        // findAll()은 공유 DB의 타 데이터에 취약하므로 이 골프장/날짜로 범위를 한정한다
+        assertThat(historyRepository.findByGolfCourse_IdAndAssignment_AssignmentDateOrderByCreatedAtAsc(
+                golfCourse.getId(), TEST_DATE)).hasSize(1);
     }
 
     @Test
