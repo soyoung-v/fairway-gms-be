@@ -3,6 +3,7 @@ package com.fairwaygms.fairwaygmsbe.settlement.application.service;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.entity.Caddie;
 import com.fairwaygms.fairwaygmsbe.caddie.domain.repository.CaddieRepository;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.req.AdjustCaddieFeeReq;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.res.*;
@@ -35,8 +36,16 @@ public class MonthlySettlementService {
     // ADMIN은 golfCourseId claim이 null이므로 선택 골프장 헤더 기준으로 대상을 결정한다 (FR-610/613)
     private final com.fairwaygms.fairwaygmsbe.common.context.GolfCourseContextResolver contextResolver;
 
+    // 정산 조회/집계/확정은 MANAGER·ADMIN 전용 — CADDY 접근 차단
+    private void requireManagerOrAdmin(AuthenticatedUser auth) {
+        if (!auth.isManager() && !auth.isAdmin()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<RoundSummaryRes> getRoundSummary(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         List<Object[]> rows = assignmentRecordRepository.aggregateByCaddie(golfCourseId, yearMonth);
         Map<Long, String> nameMap = buildCaddieNameMap(golfCourseId);
@@ -52,6 +61,7 @@ public class MonthlySettlementService {
 
     @Transactional(readOnly = true)
     public List<IncomeSummaryRes> getIncomeSummary(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         List<Object[]> rows = assignmentRecordRepository.aggregateByCaddie(golfCourseId, yearMonth);
         Map<Long, String> nameMap = buildCaddieNameMap(golfCourseId);
@@ -82,6 +92,7 @@ public class MonthlySettlementService {
 
     @Transactional
     public MonthlySettlementRes confirmMonth(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         MonthlySettlement settlement = getOrCreateSettlement(golfCourseId, yearMonth);
 
@@ -123,6 +134,7 @@ public class MonthlySettlementService {
 
     @Transactional
     public void cancelConfirmMonth(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         MonthlySettlement settlement = settlementRepository
                 .findByGolfCourseIdAndSettlementYearMonthAndIsDeletedFalse(
                         contextResolver.resolveTargetGolfCourseId(auth), yearMonth)
@@ -137,6 +149,7 @@ public class MonthlySettlementService {
 
     @Transactional
     public IncomeSummaryRes adjustCaddieFee(Long caddieId, AdjustCaddieFeeReq req, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         Long golfCourseId = contextResolver.resolveTargetGolfCourseId(auth);
         MonthlySettlement settlement = getOrCreateSettlement(golfCourseId, req.yearMonth());
 
@@ -177,6 +190,7 @@ public class MonthlySettlementService {
     @Transactional(readOnly = true)
     public Page<SettlementHistoryRes> getHistory(String yearMonth, Long caddieId,
                                                  int page, int size, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         return historyRepository.findByYearMonthAndOptionalCaddie(
                         contextResolver.resolveTargetGolfCourseId(auth), yearMonth, caddieId, PageRequest.of(page, size))
                 .map(SettlementHistoryRes::from);

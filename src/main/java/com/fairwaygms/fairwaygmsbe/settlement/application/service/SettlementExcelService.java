@@ -60,9 +60,17 @@ public class SettlementExcelService {
         return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
     }
 
+    // 정산 엑셀 다운로드는 MANAGER·ADMIN 전용 — CADDY 접근 차단
+    private void requireManagerOrAdmin(AuthenticatedUser auth) {
+        if (!auth.isManager() && !auth.isAdmin()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
     // API-610: 과세자료 관리대장 다운로드 — 국세청 제출 양식 (FR-611)
     @Transactional(readOnly = true)
     public byte[] exportInsurance(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         YearMonth ym = parseYearMonth(yearMonth);
         Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);
@@ -135,6 +143,7 @@ public class SettlementExcelService {
     // API-611: 정산 자료 다운로드 — 캐디별 일수/횟수/캐디피/조정액 (FR-612)
     @Transactional(readOnly = true)
     public byte[] exportSettlement(String yearMonth, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         parseYearMonth(yearMonth);
         Long golfCourseId = targetGolfCourseId(auth);
         GolfCourse golfCourse = findGolfCourse(golfCourseId);

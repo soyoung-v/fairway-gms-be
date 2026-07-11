@@ -4,6 +4,7 @@ import com.fairwaygms.fairwaygmsbe.assignment.domain.entity.Assignment;
 import com.fairwaygms.fairwaygmsbe.assignment.domain.repository.AssignmentRepository;
 import com.fairwaygms.fairwaygmsbe.assignment.exception.AssignmentErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.exception.BusinessException;
+import com.fairwaygms.fairwaygmsbe.common.exception.ErrorCode;
 import com.fairwaygms.fairwaygmsbe.common.security.AuthenticatedUser;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.req.NoShowCalculateReq;
 import com.fairwaygms.fairwaygmsbe.settlement.application.model.req.RainCancellationCalculateReq;
@@ -36,8 +37,16 @@ public class FeePolicyService {
         return auth.isAdmin() ? contextResolver.resolveTargetGolfCourseId(auth) : auth.getGolfCourseId();
     }
 
+    // 정산/캐디피는 MANAGER·ADMIN 전용 — CADDY 접근 차단
+    private void requireManagerOrAdmin(AuthenticatedUser auth) {
+        if (!auth.isManager() && !auth.isAdmin()) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
     @Transactional
     public FeePolicyRes upsertFeePolicy(UpsertFeePolicyReq req, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         Long golfCourseId = targetGolfCourseId(auth);
         CaddieFeepolicy policy = feePolicyRepository.findByGolfCourseIdAndIsDeletedFalse(golfCourseId)
                 .orElse(null);
@@ -56,12 +65,14 @@ public class FeePolicyService {
 
     @Transactional(readOnly = true)
     public FeePolicyRes getFeePolicy(AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         return FeePolicyRes.from(getPolicy(targetGolfCourseId(auth)));
     }
 
     @Transactional(readOnly = true)
     public FeeCalculationRes calculateRainCancellationFee(RainCancellationCalculateReq req,
                                                           AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         CaddieFeepolicy policy = getPolicy(targetGolfCourseId(auth));
         Assignment assignment = getAssignment(req.assignmentId());
 
@@ -71,6 +82,7 @@ public class FeePolicyService {
 
     @Transactional(readOnly = true)
     public FeeCalculationRes calculateNoShowFee(NoShowCalculateReq req, AuthenticatedUser auth) {
+        requireManagerOrAdmin(auth);
         CaddieFeepolicy policy = getPolicy(targetGolfCourseId(auth));
         getAssignment(req.assignmentId()); // 존재 확인
 

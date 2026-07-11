@@ -150,6 +150,7 @@ public class CaddieService {
     // FR-302: 골프장별 캐디 목록 — ADMIN은 golfCourseId 직접 전달, MANAGER는 소속 골프장만
     @Transactional(readOnly = true)
     public List<CaddieRes> getList(Long golfCourseId, AuthenticatedUser auth) {
+        validateManager(auth); // 관리 조회는 MANAGER/ADMIN 전용 — CADDY 접근 차단
         Long targetId = resolveGolfCourseId(golfCourseId, auth);
         return caddieRepository.findByGolfCourse_IdAndIsDeletedFalse(targetId)
                 .stream()
@@ -160,6 +161,7 @@ public class CaddieService {
     // FR-303: 캐디 상세 조회
     @Transactional(readOnly = true)
     public CaddieRes getDetail(Long caddieId, AuthenticatedUser auth) {
+        validateManager(auth); // 관리 조회는 MANAGER/ADMIN 전용 — CADDY 접근 차단
         Caddie caddie = findCaddie(caddieId);
         validateGolfCourseAccess(caddie.getGolfCourse().getId(), auth);
         return CaddieRes.from(caddie);
@@ -217,6 +219,7 @@ public class CaddieService {
     // FR-324: 가용 캐디 조회 — ACTIVE 상태이며 해당 날짜에 배정 제외 유형이 없는 캐디
     @Transactional(readOnly = true)
     public List<AvailableCaddieRes> getAvailableCaddies(Long golfCourseId, LocalDate date, AuthenticatedUser auth) {
+        validateManager(auth); // 관리 조회는 MANAGER/ADMIN 전용 — CADDY 접근 차단
         Long targetId = resolveGolfCourseId(golfCourseId, auth);
         List<Caddie> activeCaddies = caddieRepository
                 .findByGolfCourse_IdAndStatusAndIsDeletedFalse(targetId, CaddieStatus.ACTIVE);
