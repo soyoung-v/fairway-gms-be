@@ -72,7 +72,10 @@ public class Caddie extends BaseEntity {
         caddie.golfCourse = golfCourse;
         caddie.user = user;
         caddie.name = name;
-        caddie.caddieNumber = "";
+        // 승인 자동 생성 캐디는 번호 미정 상태다. 빈 문자열은 UNIQUE(golf_course_id, caddie_number)에 걸려
+        // 골프장당 1명만 승인 가능해지므로, userId 기반 전역 고유 임시번호를 부여하고 Manager가 이후 보완한다.
+        // (테스트 픽스처는 user=null로 생성 후 번호를 직접 지정하므로 null-safe 처리)
+        caddie.caddieNumber = (user != null) ? "TEMP-" + user.getId() : "";
         caddie.status = CaddieStatus.ACTIVE;
         caddie.isDeleted = false;
         return caddie;

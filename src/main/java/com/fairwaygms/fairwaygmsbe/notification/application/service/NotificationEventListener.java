@@ -38,9 +38,12 @@ public class NotificationEventListener {
         List<Caddie> caddies = caddieRepository.findByGolfCourse_IdAndIsDeletedFalse(event.getGolfCourseId());
         if (caddies.isEmpty()) return;
 
+        // 계정 미연동 캐디(getUser()==null)는 알림 수신 대상이 아니므로 제외한다 (NPE 방지)
         List<Long> userIds = caddies.stream()
+                .filter(c -> c.getUser() != null)
                 .map(c -> c.getUser().getId())
                 .toList();
+        if (userIds.isEmpty()) return;
 
         String title = "새 공지사항";
         String content = event.getTitle();
@@ -64,6 +67,10 @@ public class NotificationEventListener {
             return;
         }
 
+        if (caddie.getUser() == null) {
+            log.warn("교환 요청 알림 실패 — caddieId={} 계정 미연동", event.getRequesterCaddieId());
+            return;
+        }
         Long userId = caddie.getUser().getId();
         boolean approved = event.getStatus() == SwapRequestStatus.APPROVED;
         String title = approved ? "교환 요청 승인" : "교환 요청 거절";
@@ -91,14 +98,20 @@ public class NotificationEventListener {
         String title = "배정표 확정";
         String content = event.getScheduleDate() + " 배정표가 확정되었습니다.";
 
-        List<Long> userIds = assignments.stream()
+        // 계정 미연동 캐디는 알림 수신 대상이 아니므로 제외한다 (NPE 방지)
+        List<Assignment> notifiable = assignments.stream()
+                .filter(a -> a.getCaddie().getUser() != null)
+                .toList();
+        if (notifiable.isEmpty()) return;
+
+        List<Long> userIds = notifiable.stream()
                 .map(a -> a.getCaddie().getUser().getId())
                 .distinct()
                 .toList();
 
         fcmPushService.sendPushToAll(userIds, title, content);
 
-        assignments.forEach(a -> notificationService.createNotification(
+        notifiable.forEach(a -> notificationService.createNotification(
                 event.getGolfCourseId(),
                 a.getCaddie().getUser().getId(),
                 NotificationType.ASSIGNMENT_CONFIRMED, title, content,

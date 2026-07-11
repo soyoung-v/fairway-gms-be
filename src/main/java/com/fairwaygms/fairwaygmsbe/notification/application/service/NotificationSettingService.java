@@ -15,7 +15,8 @@ public class NotificationSettingService {
 
     private final NotificationSettingRepository notificationSettingRepository;
 
-    @Transactional(readOnly = true)
+    // 최초 조회 시 기본 설정을 lazy 생성하므로 쓰기 트랜잭션이어야 한다 (readOnly면 INSERT가 막혀 500)
+    @Transactional
     public NotificationSettingRes getSettings(AuthenticatedUser auth) {
         NotificationSetting setting = getOrCreateDefault(auth.getUserId(), auth.getGolfCourseId());
         return NotificationSettingRes.from(setting);

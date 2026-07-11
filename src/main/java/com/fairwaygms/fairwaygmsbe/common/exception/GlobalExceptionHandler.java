@@ -5,8 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -47,6 +49,26 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorCode.INVALID_REQUEST.getCode(),
                         "필수 헤더가 누락되었습니다: " + e.getHeaderName()));
+    }
+
+    // 필수 요청 파라미터 누락 — 잘못된 요청이므로 400으로 응답한다 (미처리 시 500으로 샘)
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException e) {
+        log.warn("MissingParam: {}", e.getParameterName());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_REQUEST.getCode(),
+                        "필수 요청 파라미터가 누락되었습니다: " + e.getParameterName()));
+    }
+
+    // 요청 본문 JSON 파싱 실패 — 잘못된 요청이므로 400으로 응답한다 (미처리 시 500으로 샘)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("MessageNotReadable: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_REQUEST.getCode(),
+                        "요청 본문 형식이 올바르지 않습니다."));
     }
 
     // 그 외 처리되지 않은 모든 예외 — 예상치 못한 서버 오류
