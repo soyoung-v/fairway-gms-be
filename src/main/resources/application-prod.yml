@@ -38,7 +38,9 @@ fairway:
     refresh-token-cookie-path: ${JWT_REFRESH_COOKIE_PATH:/api/auth}
     cookie-secure: ${JWT_COOKIE_SECURE:true}
     cookie-http-only: ${JWT_COOKIE_HTTP_ONLY:true}
-    cookie-same-site: ${JWT_COOKIE_SAME_SITE:Lax}
+    # prod는 프론트(vercel)와 백엔드(duckdns) 도메인이 달라 크로스사이트다.
+    # 크로스사이트 XHR에 인증 쿠키가 실리려면 SameSite=None; Secure 여야 한다.
+    cookie-same-site: ${JWT_COOKIE_SAME_SITE:None}
   app:
     frontend-url: ${FAIRWAY_GMS_FRONTEND_URL}
   bootstrap:
